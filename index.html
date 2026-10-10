@@ -346,6 +346,53 @@ if (element.tagName === 'IMG') {
     `;
 
     viewer.appendChild(groteFoto);
+    const verwijderKnop = document.createElement('button');
+verwijderKnop.textContent = '🗑️ Verwijderen';
+verwijderKnop.style.cssText = `
+  position:absolute;
+  bottom:35px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:12px 20px;
+  border:0;
+  border-radius:12px;
+  background:#e53935;
+  color:white;
+  font-size:16px;
+  z-index:10000;
+`;
+
+verwijderKnop.onclick = (event) => {
+  event.stopPropagation();
+
+  if (!confirm('Weet je zeker dat je deze foto wilt verwijderen?')) {
+    return;
+  }
+
+  const verzoek = indexedDB.open('MemoarisMedia', 1);
+
+  verzoek.onsuccess = () => {
+    const db = verzoek.result;
+    const tx = db.transaction('fotos', 'readwrite');
+
+    tx.objectStore('fotos').delete(foto.id);
+
+    tx.oncomplete = () => {
+      db.close();
+      viewer.remove();
+      laadFotos();
+    };
+
+    tx.onerror = () => {
+      db.close();
+      alert('Verwijderen is niet gelukt.');
+    };
+  };
+
+  verzoek.onerror = () => alert('Database openen is mislukt.');
+};
+
+viewer.appendChild(verwijderKnop);
     viewer.onclick = () => viewer.remove();
     document.body.appendChild(viewer);
   };
