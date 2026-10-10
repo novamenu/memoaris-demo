@@ -138,7 +138,11 @@ function renderFolders(){
   };
   row.append(open,rename);list.append(row);
  });
+laadFotos();
+
 }
+
+
 function currentFolderName(){
  let folders=data.folders,name='';
  for(const id of path){
@@ -258,6 +262,56 @@ document.getElementById('galleryInput')
 
 document.getElementById('cameraInput')
   .addEventListener('change', toonMedia);
+
+function laadFotos() {
+  const preview = document.getElementById('mediaPreview');
+  preview.replaceChildren();
+
+  const verzoek = indexedDB.open('MemoarisMedia', 1);
+
+  verzoek.onsuccess = () => {
+    const db = verzoek.result;
+    const tx = db.transaction('fotos', 'readonly');
+    const opslag = tx.objectStore('fotos');
+
+    const resultaten = opslag.getAll();
+
+    resultaten.onsuccess = () => {
+      const huidigeMap = path.length
+        ? path[path.length - 1]
+        : 'home';
+
+      resultaten.result
+        .filter(foto => foto.folderId === huidigeMap)
+        .forEach(foto => {
+          const url = URL.createObjectURL(foto.bestand);
+          const element = document.createElement(
+            foto.bestand.type.startsWith('video/')
+              ? 'video'
+              : 'img'
+          );
+
+          element.src = url;
+          element.style.width = '100%';
+          element.style.maxWidth = '250px';
+          element.style.borderRadius = '12px';
+          element.style.marginTop = '12px';
+
+          if (element.tagName === 'VIDEO') {
+            element.controls = true;
+          }
+
+          preview.appendChild(element);
+        });
+    };
+
+    tx.oncomplete = () => db.close();
+  };
+
+  verzoek.onerror = () => {
+    alert('Opgeslagen foto’s konden niet worden geladen.');
+  };
+}
 
 </script>
 
