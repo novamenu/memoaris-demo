@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memoaris</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f3f7fd;color:#24384d;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif}
+header{background:linear-gradient(135deg,#85caf3,#2668ac);color:white;text-align:center;padding:55px 20px 38px;border-radius:0 0 35px 35px}
+header h1{font-size:34px;margin:12px 0}
+header p{opacity:.9}
+main{padding:24px 20px;max-width:650px;margin:auto}
+.card{display:flex;align-items:center;gap:18px;background:white;border:0;border-radius:22px;padding:23px;margin-bottom:16px;box-shadow:0 6px 18px #244b7012;width:100%;text-align:left;color:inherit;cursor:pointer}
+.symbol{font-size:31px}
+.card h2{margin:0 0 5px;font-size:20px}
+.card p{margin:0;color:#718294;font-size:14px}
+button{font:inherit}
+.action{background:#3289ca;color:white;border:0;border-radius:14px;padding:13px 17px;margin:5px 5px 12px 0;cursor:pointer}
+.back{background:transparent;color:#286ca8;border:0;padding:12px 0;font-weight:600}
+input,textarea{width:100%;padding:14px;border:1px solid #ccd9e7;border-radius:12px;font:inherit;margin:8px 0 14px;background:white}
+textarea{min-height:140px;resize:vertical}
+.folder{background:white;border-radius:16px;padding:17px;margin:10px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.folder button{border:0;background:#eaf4ff;border-radius:10px;padding:10px;color:#246aab}
+.foldername{flex:1;text-align:left;background:none!important;color:#24384d!important;font-weight:600}
+.note{background:white;border-radius:15px;padding:17px;margin:12px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.muted{color:#718294;font-size:14px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+<div style="font-size:42px">💙 📸</div>
+<h1>Memoaris</h1>
+<p>Bewaar de momenten die tellen.</p>
+</header>
+
+<main>
+<section id="home">
+<button class="card" onclick="show('albums')">
+<span class="symbol">🖼️</span>
+<span><h2>Mijn Memoaris</h2><p>Foto's, video's en herinneringen</p></span>
+</button>
+<button class="card" onclick="show('notes')">
+<span class="symbol">📝</span>
+<span><h2>Notes</h2><p>Schrijf jouw persoonlijke verhalen</p></span>
+</button>
+<button class="card" onclick="show('private')">
+<span class="symbol">🔒</span>
+<span><h2>Private</h2><p>Jouw persoonlijke privéruimte</p></span>
+</button>
+</section>
+
+<section id="albums" hidden>
+<button class="back" onclick="goBack()">← Terug</button>
+<h2 id="folderTitle">📁 Mijn Memoaris</h2>
+<button class="action" onclick="newFolder()">+ Nieuwe map</button>
+<div id="folderList"></div>
+<p class="muted">Maak je eigen mappen en submappen.</p>
+ <div id="mediaButtons">
+  <button onclick="document.getElementById('galleryInput').click()">
+    🖼️ Foto's en video's toevoegen
+  </button>
+
+  <button onclick="document.getElementById('cameraInput').click()">
+    📷 Camera openen
+  </button>
+
+  <input id="galleryInput" type="file"
+    accept="image/*,video/*" multiple hidden>
+
+  <input id="cameraInput" type="file"
+    accept="image/*" capture="environment" hidden>
+</div>
+</section>
+
+<section id="notes" hidden>
+<button class="back" onclick="show('home')">← Terug</button>
+<h2>📝 Mijn Notes</h2>
+<input id="noteTitle" placeholder="Titel van je notitie">
+<textarea id="noteText" placeholder="Schrijf hier je herinnering..."></textarea>
+<button class="action" onclick="saveNote()">Notitie bewaren</button>
+<div id="noteList"></div>
+</section>
+
+<section id="private" hidden>
+<button class="back" onclick="show('home')">← Terug</button>
+<h2>🔒 Private</h2>
+<p>Hier bouwen we later jouw beveiligde privéruimte met een pincode en Face ID.</p>
+<p class="muted">Bewaar hier nog geen privégegevens. Dit scherm is nog niet beveiligd.</p>
+</section>
+</main>
+
+<script>
+const KEY='memoaris-demo-v2';
+let data={folders:[],notes:[]};
+try{
+ const saved=JSON.parse(localStorage.getItem(KEY));
+ if(saved && Array.isArray(saved.folders) && Array.isArray(saved.notes)) data=saved;
+}catch(e){}
+let path=[];
+function persist(){
+ try{localStorage.setItem(KEY,JSON.stringify(data));}
+ catch(e){alert('Opslaan lukt niet in deze browser.');}
+}
+function show(page){
+ document.querySelectorAll('main section').forEach(s=>s.hidden=true);
+ document.getElementById(page).hidden=false;
+ if(page==='albums')renderFolders();
+ if(page==='notes')renderNotes();
+ window.scrollTo(0,0);
+}
+function currentFolders(){
+ let folders=data.folders;
+ for(const id of path){
+  const found=folders.find(f=>f.id===id);
+  if(!found){path=[];return data.folders;}
+  folders=found.children;
+ }
+ return folders;
+}
+function renderFolders(){
+ const list=document.getElementById('folderList');
+ list.replaceChildren();
+ document.getElementById('folderTitle').textContent=
+ path.length?'📁 '+(currentFolderName()||'Map'):'📁 Mijn Memoaris';
+ currentFolders().forEach(folder=>{
+  const row=document.createElement('div');row.className='folder';
+  const open=document.createElement('button');
+  open.className='foldername';open.textContent='📁 '+folder.name;
+  open.onclick=()=>{path.push(folder.id);renderFolders();};
+  const rename=document.createElement('button');
+  rename.textContent='✏️';
+  rename.setAttribute('aria-label','Map hernoemen');
+  rename.onclick=()=>{
+   const name=prompt('Nieuwe mapnaam:',folder.name);
+   if(name && name.trim()){folder.name=name.trim();persist();renderFolders();}
+  };
+  row.append(open,rename);list.append(row);
+ });
+}
+function currentFolderName(){
+ let folders=data.folders,name='';
+ for(const id of path){
+  const folder=folders.find(f=>f.id===id);
+  if(!folder)break;
+  name=folder.name;folders=folder.children;
+ }
+ return name;
+}
+function newFolder(){
+ const name=prompt('Hoe wil je de map noemen?');
+ if(!name || !name.trim())return;
+ currentFolders().push({
+  id:Date.now().toString(36)+Math.random().toString(36).slice(2),
+  name:name.trim(),children:[]
+ });
+ persist();renderFolders();
+}
+function goBack(){
+ if(path.length){path.pop();renderFolders();}
+ else show('home');
+}
+function saveNote(){
+ const title=document.getElementById('noteTitle').value.trim();
+ const body=document.getElementById('noteText').value.trim();
+ if(!title && !body){alert('Schrijf eerst iets.');return;}
+ data.notes.unshift({title:title||'Zonder titel',body:body,date:new Date().toLocaleDateString('nl-NL')});
+ persist();
+ document.getElementById('noteTitle').value='';
+ document.getElementById('noteText').value='';
+ renderNotes();
+}
+function renderNotes(){
+ const list=document.getElementById('noteList');
+ list.replaceChildren();
+ data.notes.forEach(note=>{
+  const div=document.createElement('div');div.className='note';
+  const heading=document.createElement('strong');
+  heading.textContent=note.title;
+  const date=document.createElement('p');
+  date.className='muted';date.textContent=note.date;
+  const body=document.createElement('div');body.textContent=note.body;
+  div.append(heading,date,body);list.append(div);
+ });
+}
+</script>
+
+</body>
+</html>
