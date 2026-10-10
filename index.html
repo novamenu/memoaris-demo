@@ -71,7 +71,7 @@ textarea{min-height:140px;resize:vertical}
 
   <input id="cameraInput" type="file"
     accept="image/*" capture="environment" hidden>
-</div>
+<div id="mediaPreview"></div> </div>
 </section>
 
 <section id="notes" hidden>
@@ -183,7 +183,42 @@ function renderNotes(){
   const body=document.createElement('div');body.textContent=note.body;
   div.append(heading,date,body);list.append(div);
  });
+} 
+function toonMedia(event) {
+  const preview = document.getElementById('mediaPreview');
+  const bestanden = Array.from(event.target.files || []);
+
+  bestanden.forEach(bestand => {
+    const url = URL.createObjectURL(bestand);
+    let element;
+
+    if (bestand.type.startsWith('image/')) {
+      element = document.createElement('img');
+      element.alt = 'Toegevoegde foto';
+    } else if (bestand.type.startsWith('video/')) {
+      element = document.createElement('video');
+      element.controls = true;
+    } else {
+      return;
+    }
+
+    element.src = url;
+    element.style.width = '100%';
+    element.style.maxWidth = '250px';
+    element.style.borderRadius = '12px';
+    element.style.marginTop = '12px';
+    preview.appendChild(element);
+  });
+
+  event.target.value = '';
 }
+
+document.getElementById('galleryInput')
+  .addEventListener('change', toonMedia);
+
+document.getElementById('cameraInput')
+  .addEventListener('change', toonMedia);
+
 </script>
 
 </body>
