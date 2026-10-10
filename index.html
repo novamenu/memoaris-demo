@@ -26,7 +26,27 @@ textarea{min-height:140px;resize:vertical}
 .note{background:white;border-radius:15px;padding:17px;margin:12px 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .muted{color:#718294;font-size:14px}
 [hidden]{display:none!important}
-</style>
+
+#mediaPreview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+#mediaPreview img,
+#mediaPreview video {
+  width: 100% !important;
+  max-width: none !important;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 10px !important;
+  margin-top: 0 !important;
+  cursor: pointer;
+}
+ </style>
 </head>
 <body>
 <header>
@@ -301,7 +321,37 @@ function laadFotos() {
             element.controls = true;
           }
 
-          preview.appendChild(element);
+         
+if (element.tagName === 'IMG') {
+  element.onclick = () => {
+    const viewer = document.createElement('div');
+    viewer.style.cssText = `
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.95);
+      z-index:9999;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    `;
+
+    const groteFoto = document.createElement('img');
+    groteFoto.src = element.src;
+    groteFoto.style.cssText = `
+      max-width:100%;
+      max-height:90vh;
+      object-fit:contain;
+    `;
+
+    viewer.appendChild(groteFoto);
+    viewer.onclick = () => viewer.remove();
+    document.body.appendChild(viewer);
+  };
+}
+
+         preview.appendChild(element);
+     
         });
     };
 
