@@ -222,7 +222,21 @@ lezer.readAsDataURL(bestand);
 input.click();
 };
 
-   row.append(open, rename, omslagKnop);
+ 
+const verwijderMapKnop = document.createElement('button');
+verwijderMapKnop.textContent = '🗑️';
+verwijderMapKnop.title = 'Map verwijderen';
+
+verwijderMapKnop.onclick = () => {
+  if (folder.children && folder.children.length > 0) {
+    alert('Deze map bevat submappen. Verwijder die eerst.');
+    return;
+  }
+
+  alert('We gaan controleren of deze map nog foto’s bevat.');
+};
+
+   row.append(open, rename, omslagKnop, verwijderMapKnop);
 list.append(row);
  });
 laadFotos();
