@@ -227,14 +227,59 @@ const verwijderMapKnop = document.createElement('button');
 verwijderMapKnop.textContent = '🗑️';
 verwijderMapKnop.title = 'Map verwijderen';
 
+
 verwijderMapKnop.onclick = () => {
-  if (folder.children && folder.children.length > 0) {
+  if (folder.children?.length > 0) {
     alert('Deze map bevat submappen. Verwijder die eerst.');
     return;
   }
 
-  alert('We gaan controleren of deze map nog foto’s bevat.');
+  const verzoek = indexedDB.open('MemoarisMedia', 2);
+
+  verzoek.onsuccess = () => {
+    const db = verzoek.result;
+    const tx = db.transaction('fotos', 'readonly');
+    const ophalen = tx.objectStore('fotos').getAll();
+
+    ophalen.onsuccess = () => {
+      const bevatMedia = ophalen.result.some(
+        foto => foto.folderId === folder.id
+      );
+
+      db.close();
+
+      if (bevatMedia) {
+        alert('Deze map bevat foto’s of video’s. Verplaats of verwijder die eerst.');
+        return;
+      }
+
+      if (!confirm('Weet je zeker dat je de lege map "' + folder.name + '" wilt verwijderen?')) {
+        return;
+      }
+
+      const mappen = currentFolders();
+      const index = mappen.findIndex(
+        map => map.id === folder.id
+      );
+
+      if (index === -1) return;
+
+      mappen.splice(index, 1);
+      persist();
+      renderFolders();
+    };
+
+    ophalen.onerror = () => {
+      db.close();
+      alert('Controle mislukt. De map is niet verwijderd.');
+    };
+  };
+
+  verzoek.onerror = () => {
+    alert('Database kon niet worden geopend. De map is niet verwijderd.');
+  };
 };
+
 
    row.append(open, rename, omslagKnop, verwijderMapKnop);
 list.append(row);
