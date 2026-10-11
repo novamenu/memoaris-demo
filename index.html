@@ -476,10 +476,80 @@ verplaatsKnop.style.cssText = `
   z-index:10000;
 `;
 
+
 verplaatsKnop.onclick = (event) => {
   event.stopPropagation();
-  alert('Hier gaan we een doelmap kiezen.');
+
+  const mappen = alleMappen().filter(
+    map => map.id !== foto.folderId
+  );
+
+  if (!mappen.length) {
+    alert('Maak eerst een andere map aan.');
+    return;
+  }
+
+  const keuze = prompt(
+    'Naar welke map verplaatsen?\n\n' +
+    mappen.map((map, i) =>
+      `${i + 1}. ${map.naam}`
+    ).join('\n') +
+    '\n\nTyp het nummer van de map:'
+  );
+
+  if (keuze === null) return;
+
+  const nummer = Number(keuze.trim());
+
+  if (!Number.isInteger(nummer) ||
+      nummer < 1 || nummer > mappen.length) {
+    alert('Kies een geldig mapnummer.');
+    return;
+  }
+
+  const doel = mappen[nummer - 1];
+
+  const verzoek = indexedDB.open('MemoarisMedia', 2);
+
+  verzoek.onsuccess = () => {
+    const db = verzoek.result;
+    const tx = db.transaction('fotos', 'readwrite');
+    const opslag = tx.objectStore('fotos');
+    const ophalen = opslag.get(foto.id);
+
+    ophalen.onsuccess = () => {
+      const opgeslagenFoto = ophalen.result;
+
+      if (!opgeslagenFoto) {
+        tx.abort();
+        alert('Foto niet gevonden.');
+        return;
+      }
+
+      opgeslagenFoto.folderId = doel.id;
+      opslag.put(opgeslagenFoto);
+    };
+
+    tx.oncomplete = () => {
+      db.close();
+      viewer.remove();
+      laadFotos();
+      alert('Foto verplaatst naar: ' + doel.naam);
+    };
+
+    tx.onerror = () => {
+      db.close();
+      alert('Verplaatsen is niet gelukt.');
+    };
+
+    tx.onabort = () => db.close();
+  };
+
+  verzoek.onerror = () => {
+    alert('Database kon niet worden geopend.');
+  };
 };
+
 
 viewer.appendChild(verplaatsKnop);
     viewer.appendChild(verwijderKnop);
