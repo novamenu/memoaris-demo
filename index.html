@@ -148,6 +148,14 @@ function renderFolders(){
   const row=document.createElement('div');row.className='folder';
   const open=document.createElement('button');
   open.className='foldername';open.textContent='📁 '+folder.name;
+   if (folder.cover) {
+  open.style.backgroundImage = `url("${folder.cover}")`;
+  open.style.backgroundSize = 'cover';
+  open.style.backgroundPosition = 'center';
+  open.style.color = 'white';
+  open.style.minHeight = '120px';
+  open.style.textShadow = '0 1px 5px black';
+}
   open.onclick=()=>{path.push(folder.id);renderFolders();};
   const rename=document.createElement('button');
   rename.textContent='✏️';
@@ -156,7 +164,31 @@ function renderFolders(){
    const name=prompt('Nieuwe mapnaam:',folder.name);
    if(name && name.trim()){folder.name=name.trim();persist();renderFolders();}
   };
-  row.append(open,rename);list.append(row);
+ const omslagKnop = document.createElement('button');
+   omslagKnop.textContent = '🖼️';
+   omslagKnop.title = 'Omslagfoto kiezen';
+   omslagKnop.onclick = () => {
+     const input = document.createElement('input');
+     input.type = 'file';
+     input.accept = 'image/*';
+     input.onchange = () => {
+       const bestand = input.files[0];
+       if (!bestand) return;
+       const lezer = new FileReader();
+lezer.onload = () => {
+  folder.cover = lezer.result;
+  persist();
+  renderFolders();
+};
+
+lezer.readAsDataURL(bestand);
+};
+
+input.click();
+};
+
+   row.append(open, rename, omslagKnop);
+list.append(row);
  });
 laadFotos();
 
