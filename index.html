@@ -148,40 +148,13 @@ function renderFolders(){
   const row=document.createElement('div');row.className='folder';
   const open=document.createElement('button');
   open.className='foldername';open.textContent='📁 '+folder.name;
-   
-const omslagVerzoek = indexedDB.open('MemoarisMedia', 2);
-
-omslagVerzoek.onsuccess = () => {
-  const db = omslagVerzoek.result;
-
-  if (!db.objectStoreNames.contains('omslagen')) {
-    db.close();
-    return;
-  }
-
-  const tx = db.transaction('omslagen', 'readonly');
-  const resultaat = tx.objectStore('omslagen').get(folder.id);
-
-  resultaat.onsuccess = () => {
-    if (!resultaat.result) return;
-
-    const url = URL.createObjectURL(resultaat.result.bestand);
-
-    open.style.backgroundImage = `url("${url}")`;
-    open.style.backgroundSize = 'cover';
-    open.style.backgroundPosition = 'center';
-    open.style.color = 'white';
-    open.style.minHeight = '120px';
-    open.style.textShadow = '0 1px 5px black';
-
-    open.addEventListener('click', () => {
-      URL.revokeObjectURL(url);
-    }, { once: true });
-  };
-
-  tx.oncomplete = () => db.close();
-};
-
+   if (folder.cover) {
+  open.style.backgroundImage = `url("${folder.cover}")`;
+  open.style.backgroundSize = 'cover';
+  open.style.backgroundPosition = 'center';
+  open.style.color = 'white';
+  open.style.minHeight = '120px';
+  open.style.textShadow = '0 1px 5px black';
 }
   open.onclick=()=>{path.push(folder.id);renderFolders();};
   const rename=document.createElement('button');
@@ -201,40 +174,14 @@ omslagVerzoek.onsuccess = () => {
      input.onchange = () => {
        const bestand = input.files[0];
        if (!bestand) return;
-       
-const verzoek = indexedDB.open('MemoarisMedia', 2);
-
-verzoek.onsuccess = () => {
-  const db = verzoek.result;
-
-  if (!db.objectStoreNames.contains('omslagen')) {
-    db.close();
-    alert('Omslagopslag is nog niet beschikbaar.');
-    return;
-  }
-
-  const tx = db.transaction('omslagen', 'readwrite');
-
-  tx.objectStore('omslagen').put({
-    folderId: folder.id,
-    bestand: bestand
-  });
-
-  tx.oncomplete = () => {
-    db.close();
-    renderFolders();
-  };
-
-  tx.onerror = () => {
-    db.close();
-    alert('Omslagfoto opslaan mislukt.');
-  };
+       const lezer = new FileReader();
+lezer.onload = () => {
+  folder.cover = lezer.result;
+  persist();
+  renderFolders();
 };
 
-verzoek.onerror = () => {
-  alert('Database openen mislukt.');
-};
-
+lezer.readAsDataURL(bestand);
 };
 
 input.click();
@@ -303,9 +250,6 @@ verzoek.onupgradeneeded = () => {
   if (!db.objectStoreNames.contains('fotos')) {
     db.createObjectStore('fotos', { keyPath: 'id' });
   }
-if (!db.objectStoreNames.contains('omslagen')) {
-  db.createObjectStore('omslagen', { keyPath: 'folderId' });
-}
 };
 
 
