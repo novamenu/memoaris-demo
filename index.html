@@ -160,7 +160,21 @@ function currentFolders(){
  }
  return folders;
 }
-function renderFolders(){
+function alleMappen(folders = data.folders, prefix = '') {
+  let lijst = [];
+
+  for (const folder of folders) {
+    const naam = prefix + folder.name;
+    lijst.push({ id: folder.id, naam });
+
+    if (folder.children) {
+      lijst.push(...alleMappen(folder.children, naam + ' / '));
+    }
+  }
+
+  return lijst;
+}
+  function renderFolders(){
  const list=document.getElementById('folderList');
  list.replaceChildren();
  document.getElementById('folderTitle').textContent=
