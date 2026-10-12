@@ -104,6 +104,9 @@ textarea{min-height:140px;resize:vertical}
 <h2 id="folderTitle">📁 Mijn Memoaris</h2>
 <button class="action" onclick="newFolder()">+ Nieuwe map</button>
 <div id="folderList"></div>
+  <button class="action" onclick="maakBackup()">
+  📥 Back-up maken
+</button>
 <p class="muted">Maak je eigen mappen en submappen.</p>
  <div id="mediaButtons">
   <button onclick="document.getElementById('galleryInput').click()">
@@ -544,7 +547,86 @@ verzoek.onupgradeneeded = () => {
     verzoek.onerror = () => reject(verzoek.error);
   });
 }
+async function maakBackup() {
+  try {
+    const verzoek = indexedDB.open('MemoarisMedia', 2);
 
+    const fotos = await new Promise((resolve, reject) => {
+      verzoek.onerror = () => reject(verzoek.error);
+
+      verzoek.onsuccess = () => {
+        const db = verzoek.result;
+        const tx = db.transaction('fotos', 'readonly');
+        const ophalen = tx.objectStore('fotos').getAll();
+
+        ophalen.onsuccess = () => resolve(ophalen.result);
+        ophalen.onerror = () => reject(ophalen.error);
+
+        tx.oncomplete = () => db.close();
+      };
+    });
+
+    const totaleGrootte = fotos.reduce(
+      (totaal, foto) => totaal + (foto.bestand?.size || 0),
+      0
+    );
+
+    if (totaleGrootte > 20 * 1024 * 1024) {
+      alert('Deze back-up is te groot voor de testversie. Er is niets veranderd.');
+      return;
+    }
+
+    const media = [];
+
+    for (const foto of fotos) {
+      const inhoud = await new Promise((resolve, reject) => {
+        const lezer = new FileReader();
+        lezer.onload = () => resolve(lezer.result);
+        lezer.onerror = () => reject(lezer.error);
+        lezer.readAsDataURL(foto.bestand);
+      });
+
+      const { bestand, ...gegevens } = foto;
+
+      media.push({
+        ...gegevens,
+        bestandsnaam: bestand.name || 'herinnering',
+        bestandstype: bestand.type,
+        inhoud
+      });
+    }
+
+    const backup = {
+      versie: 1,
+      gemaaktOp: new Date().toISOString(),
+      mappenEnNotities: data,
+      media
+    };
+
+    const blob = new Blob(
+      [JSON.stringify(backup)],
+      { type: 'application/json' }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = 'memoaris-backup-' +
+      new Date().toISOString().slice(0, 10) + '.json';
+
+    document.body.append(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+    alert('Back-updownload gestart. Controleer of het bestand is opgeslagen.');
+  } catch (fout) {
+    console.error('Back-up mislukt:', fout);
+    alert('Back-up maken mislukt. Er is niets verwijderd.');
+  }
+}
  function toonMedia(event) {
   const preview = document.getElementById('mediaPreview');
   const bestanden = Array.from(event.target.files || []);
