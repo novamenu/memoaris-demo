@@ -204,7 +204,34 @@ function laadPrullenbak() {
           ? '🗑️ Verwijderde herinnering — nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard'
           : '🔒 Herinnering — Premium nodig voor herstel';
 
-        
+      if (dagen >= 0 && dagen < 7 && foto.bestand) {
+  const mediaUrl = URL.createObjectURL(foto.bestand);
+
+  const miniatuur = document.createElement(
+    foto.bestand.type.startsWith('video/') ? 'video' : 'img'
+  );
+
+  miniatuur.src = mediaUrl;
+  miniatuur.style.width = '110px';
+  miniatuur.style.height = '110px';
+  miniatuur.style.objectFit = 'cover';
+  miniatuur.style.borderRadius = '12px';
+  miniatuur.style.display = 'block';
+  miniatuur.style.marginBottom = '8px';
+
+  if (miniatuur.tagName === 'VIDEO') {
+    miniatuur.muted = true;
+    miniatuur.playsInline = true;
+    miniatuur.preload = 'metadata';
+  }
+
+  if (miniatuur.tagName === 'IMG') {
+  miniatuur.onload = () => URL.revokeObjectURL(mediaUrl);
+  miniatuur.onerror = () => URL.revokeObjectURL(mediaUrl);
+}
+
+  regel.prepend(miniatuur);
+} 
      if (dagen >= 0 && dagen < 7) {
   const herstelKnop = document.createElement('button');
   herstelKnop.textContent = '♻️ Herstellen';
