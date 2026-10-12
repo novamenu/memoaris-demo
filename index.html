@@ -188,6 +188,14 @@ function laadPrullenbak() {
       const verwijderd = ophalen.result.filter(
         foto => foto.verwijderdOp
       );
+      const dertigDagen = 30 * 24 * 60 * 60 * 1000;
+
+const verlopen = verwijderd.filter(foto =>
+  typeof foto.verwijderdOp === 'number' &&
+  Date.now() - foto.verwijderdOp >= dertigDagen
+);
+
+console.log('Herinneringen ouder dan 30 dagen:', verlopen.length);
 
       if (verwijderd.length === 0) {
         lijst.textContent = 'Je prullenbak is leeg.';
