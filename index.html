@@ -204,9 +204,52 @@ function laadPrullenbak() {
           ? '🗑️ Verwijderde herinnering — nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard'
           : '🔒 Herinnering — Premium nodig voor herstel';
 
-        lijst.append(regel);
-      });
+        
+     if (dagen >= 0 && dagen < 7) {
+  const herstelKnop = document.createElement('button');
+  herstelKnop.textContent = '♻️ Herstellen';
+
+  herstelKnop.onclick = () => {
+    if (!confirm('Wil je deze herinnering herstellen?')) return;
+
+    herstelKnop.disabled = true;
+
+    const verzoekHerstel = indexedDB.open('MemoarisMedia', 2);
+
+    verzoekHerstel.onsuccess = () => {
+      const herstelDb = verzoekHerstel.result;
+      const herstelTx = herstelDb.transaction('fotos', 'readwrite');
+
+      const hersteldeFoto = { ...foto };
+      delete hersteldeFoto.verwijderdOp;
+
+      herstelTx.objectStore('fotos').put(hersteldeFoto);
+
+      herstelTx.oncomplete = () => {
+        herstelDb.close();
+        alert('Herinnering hersteld!');
+        laadPrullenbak();
+      };
+
+      herstelTx.onerror = () => {
+        herstelDb.close();
+        herstelKnop.disabled = false;
+        alert('Herstellen is niet gelukt.');
+      };
     };
+
+    verzoekHerstel.onerror = () => {
+      herstelKnop.disabled = false;
+      alert('Database openen mislukt.');
+    };
+  };
+
+  regel.append(herstelKnop);
+} 
+
+lijst.append(regel);
+  });
+  };
 
     tx.oncomplete = () => db.close();
 
