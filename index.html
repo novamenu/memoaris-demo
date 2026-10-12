@@ -207,9 +207,20 @@ regel.style.cssText = `
   box-shadow: 0 6px 20px rgba(30,60,100,0.08);
 `;
 
-        regel.textContent = dagen < 7
-          ? '🗑️ Verwijderde herinnering — nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard'
-          : '🔒 Herinnering — Premium nodig voor herstel';
+        const beschrijving = document.createElement('p');
+
+beschrijving.textContent = dagen < 7
+  ? '🗑️ Nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard'
+  : '🔒 Premium nodig om te herstellen';
+
+beschrijving.style.cssText = `
+  margin: 12px 0;
+  color: #34445c;
+  font-size: 15px;
+  line-height: 1.5;
+`;
+
+regel.append(beschrijving);
 
       if (dagen >= 0 && dagen < 7 && foto.bestand) {
   const mediaUrl = URL.createObjectURL(foto.bestand);
