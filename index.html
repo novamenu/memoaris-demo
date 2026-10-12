@@ -90,6 +90,13 @@ textarea{min-height:140px;resize:vertical}
 <span class="symbol">🔒</span>
 <span><h2>Private</h2><p>Jouw persoonlijke privéruimte</p></span>
 </button>
+<button class="card" onclick="show('prullenbak')">
+  <span class="symbol">🗑️</span>
+  <span>
+    <h2>Prullenbak</h2>
+    <p>Bekijk en herstel verwijderde herinneringen.</p>
+  </span>
+</button>
 </section>
 
 <section id="albums" hidden>
@@ -130,7 +137,21 @@ textarea{min-height:140px;resize:vertical}
 <p>Hier bouwen we later jouw beveiligde privéruimte met een pincode en Face ID.</p>
 <p class="muted">Bewaar hier nog geen privégegevens. Dit scherm is nog niet beveiligd.</p>
 </section>
-</main>
+<section id="prullenbak" hidden>
+  <button class="back" onclick="show('home')">
+    ← Terug
+  </button>
+
+  <h2>🗑️ Prullenbak</h2>
+
+  <p class="muted">
+    Verwijderde herinneringen blijven maximaal 30 dagen bewaard.
+    Gratis gebruikers kunnen ze binnen 7 dagen herstellen.
+    Met Premium kan dat tot 30 dagen.
+  </p>
+
+  <div id="prullenbakLijst"></div>
+</section> </main>
 
 <script>
 const KEY='memoaris-demo-v2';
@@ -149,9 +170,57 @@ function show(page){
  document.getElementById(page).hidden=false;
  if(page==='albums')renderFolders();
  if(page==='notes')renderNotes();
+  if(page==='prullenbak')laadPrullenbak();
  window.scrollTo(0,0);
 }
-function currentFolders(){
+function laadPrullenbak() {
+  const lijst = document.getElementById('prullenbakLijst');
+  lijst.replaceChildren();
+
+  const verzoek = indexedDB.open('MemoarisMedia', 2);
+
+  verzoek.onsuccess = () => {
+    const db = verzoek.result;
+    const tx = db.transaction('fotos', 'readonly');
+    const ophalen = tx.objectStore('fotos').getAll();
+
+    ophalen.onsuccess = () => {
+      const verwijderd = ophalen.result.filter(
+        foto => foto.verwijderdOp
+      );
+
+      if (verwijderd.length === 0) {
+        lijst.textContent = 'Je prullenbak is leeg.';
+      }
+
+      verwijderd.forEach(foto => {
+        const dagen = Math.floor(
+          (Date.now() - foto.verwijderdOp) / 86400000
+        );
+
+        const regel = document.createElement('p');
+
+        regel.textContent = dagen < 7
+          ? '🗑️ Verwijderde herinnering — nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard'
+          : '🔒 Herinnering — Premium nodig voor herstel';
+
+        lijst.append(regel);
+      });
+    };
+
+    tx.oncomplete = () => db.close();
+
+    tx.onerror = () => {
+      lijst.textContent = 'Prullenbak laden mislukt.';
+      db.close();
+    };
+  };
+
+  verzoek.onerror = () => {
+    lijst.textContent = 'Database openen mislukt.';
+  };
+} 
+  function currentFolders(){
  let folders=data.folders;
  for(const id of path){
   const found=folders.find(f=>f.id===id);
