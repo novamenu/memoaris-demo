@@ -429,7 +429,7 @@ function laadFotos() {
         : 'home';
 
       resultaten.result
-        .filter(foto => foto.folderId === huidigeMap)
+        .filter(foto => foto.folderId === huidigeMap && !foto.verwijderdOp)
         .forEach(foto => {
           const url = URL.createObjectURL(foto.bestand);
           const element = document.createElement(
@@ -501,7 +501,8 @@ verwijderKnop.onclick = (event) => {
     const db = verzoek.result;
     const tx = db.transaction('fotos', 'readwrite');
 
-    tx.objectStore('fotos').delete(foto.id);
+    foto.verwijderdOp = Date.now();
+tx.objectStore('fotos').put(foto);
 
     tx.oncomplete = () => {
       db.close();
