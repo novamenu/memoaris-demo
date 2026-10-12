@@ -198,7 +198,14 @@ function laadPrullenbak() {
           (Date.now() - foto.verwijderdOp) / 86400000
         );
 
-        const regel = document.createElement('p');
+        const regel = document.createElement('div');
+regel.style.cssText = `
+  background: white;
+  border-radius: 18px;
+  padding: 16px;
+  margin: 16px 0;
+  box-shadow: 0 6px 20px rgba(30,60,100,0.08);
+`;
 
         regel.textContent = dagen < 7
           ? '🗑️ Verwijderde herinnering — nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard'
@@ -235,7 +242,17 @@ function laadPrullenbak() {
      if (dagen >= 0 && dagen < 7) {
   const herstelKnop = document.createElement('button');
   herstelKnop.textContent = '♻️ Herstellen';
-
+herstelKnop.style.cssText = `
+  background: #287fc3;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 15px;
+  font-weight: bold;
+  margin-top: 12px;
+  cursor: pointer;
+`;
   herstelKnop.onclick = () => {
     if (!confirm('Wil je deze herinnering herstellen?')) return;
 
