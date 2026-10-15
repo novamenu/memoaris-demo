@@ -112,6 +112,13 @@ textarea{min-height:140px;resize:vertical}
 </button>
 <input id="backupInput" type="file" accept=".json,application/json" hidden
   onchange="controleerBackup(this.files[0]); this.value='';">
+
+  <button class="action" onclick="document.getElementById('herstelTestInput').click()">
+  🧪 Back-up hersteltest
+</button>
+
+<input id="herstelTestInput" type="file" accept=".json,application/json" hidden
+  onchange="testBackupHerstel(this.files[0]); this.value='';">
 <p class="muted">Maak je eigen mappen en submappen.</p>
  <div id="mediaButtons">
   <button onclick="document.getElementById('galleryInput').click()">
@@ -670,6 +677,58 @@ async function maakBackup() {
   } catch (fout) {
     console.error(fout);
     alert('Het back-upbestand kon niet worden gelezen.');
+  }
+}
+
+  async function testBackupHerstel(bestand) {
+  try {
+    if (!bestand) return;
+
+    if (bestand.size > 30 * 1024 * 1024) {
+      alert('Back-upbestand te groot voor deze test.');
+      return;
+    }
+
+    const backup = JSON.parse(await bestand.text());
+
+    if (
+      backup.versie !== 1 ||
+      !backup.mappenEnNotities ||
+      !Array.isArray(backup.mappenEnNotities.folders) ||
+      !Array.isArray(backup.mappenEnNotities.notes) ||
+      !Array.isArray(backup.media)
+    ) {
+      alert('Ongeldig back-upbestand.');
+      return;
+    }
+
+    let gecontroleerd = 0;
+
+    for (const item of backup.media) {
+      if (
+        typeof item.inhoud !== 'string' ||
+        !/^data:[^,]*;base64,/.test(item.inhoud)
+      ) {
+        throw new Error('Ongeldige media-inhoud');
+      }
+
+      const response = await fetch(item.inhoud);
+      if (!response.ok) throw new Error('Media niet leesbaar');
+
+      const blob = await response.blob();
+      if (blob.size === 0) throw new Error('Leeg mediabestand');
+
+      gecontroleerd++;
+    }
+
+    alert(
+      'Hersteltest geslaagd!\n\n' +
+      gecontroleerd + ' mediabestanden gecontroleerd.\n' +
+      'Er is niets gewijzigd.'
+    );
+  } catch (fout) {
+    console.error(fout);
+    alert('Hersteltest mislukt. Bestaande gegevens zijn niet gewijzigd.');
   }
 }
  function toonMedia(event) {
