@@ -64,7 +64,44 @@ textarea{min-height:140px;resize:vertical}
   margin-top: 0 !important;
   cursor: pointer;
 }
- </style>
+/* Memoaris: moderne knoppen */
+#mediaButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+#mediaButtons button {
+  flex: 1 1 180px;
+  min-height: 54px;
+  padding: 14px 18px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #3289ca, #1764b2);
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 5px 14px rgba(30, 100, 180, 0.15);
+  cursor: pointer;
+}
+
+/* Nettere fotogalerij */
+#mediaPreview {
+  gap: 10px;
+  margin-top: 20px;
+}
+
+#mediaPreview img,
+#mediaPreview video {
+  border-radius: 14px !important;
+}
+
+/* Meer ruimte rond de mappen */
+.folder {
+  margin-bottom: 12px;
+}  
+</style>
 </head>
 <body>
 <header>
