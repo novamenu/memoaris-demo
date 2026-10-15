@@ -98,9 +98,28 @@ textarea{min-height:140px;resize:vertical}
 }
 
 /* Meer ruimte rond de mappen */
-.folder {
+
+  .folder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 100px;
+  padding: 16px;
   margin-bottom: 12px;
-}  
+  border-radius: 18px;
+  background: white;
+}
+
+.foldername {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.folder button {
+  flex-shrink: 0;
+}
+
 </style>
 </head>
 <body>
