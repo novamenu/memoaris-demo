@@ -131,6 +131,18 @@ textarea{min-height:140px;resize:vertical}
   hidden
   onchange="voorbeeldBackupHerstel(this.files[0]); this.value='';"
 >
+
+  <button class="action" onclick="document.getElementById('vergelijkBackupInput').click()">
+  🔍 Back-up vergelijken
+</button>
+
+<input
+  id="vergelijkBackupInput"
+  type="file"
+  accept=".json,application/json"
+  hidden
+  onchange="vergelijkBackup(this.files[0]); this.value='';"
+>
 <p class="muted">Maak je eigen mappen en submappen.</p>
  <div id="mediaButtons">
   <button onclick="document.getElementById('galleryInput').click()">
@@ -785,6 +797,125 @@ async function maakBackup() {
   } catch (fout) {
     console.error(fout);
     alert('Voorvertoning mislukt. Er is niets gewijzigd.');
+  }
+}
+
+  function controleerHerstelMappen(backupMappen) {
+  const bestaandeIds = new Set(
+    alleMappen().map(map => map.id)
+  );
+
+  let nieuw = 0;
+  let bestaand = 0;
+
+  function controleer(mappen) {
+    for (const map of mappen) {
+      if (bestaandeIds.has(map.id)) {
+        bestaand++;
+      } else {
+        nieuw++;
+      }
+
+      if (Array.isArray(map.children)) {
+        controleer(map.children);
+      }
+    }
+  }
+
+  controleer(backupMappen);
+
+  return { nieuw, bestaand };
+}
+
+  async function controleerHerstelMedia(backupMedia) {
+  if (!Array.isArray(backupMedia)) {
+    throw new Error('Ongeldige mediagegevens.');
+  }
+
+  return new Promise((resolve, reject) => {
+    const verzoek = indexedDB.open('MemoarisMedia', 2);
+
+    verzoek.onsuccess = () => {
+      const db = verzoek.result;
+
+      if (!db.objectStoreNames.contains('fotos')) {
+        db.close();
+        reject(new Error('Mediaopslag ontbreekt.'));
+        return;
+      }
+
+      const tx = db.transaction('fotos', 'readonly');
+      const ophalen = tx.objectStore('fotos').getAllKeys();
+
+      ophalen.onsuccess = () => {
+        const bestaandeIds = new Set(ophalen.result);
+        let nieuw = 0;
+        let bestaand = 0;
+
+        for (const item of backupMedia) {
+          if (bestaandeIds.has(item.id)) {
+            bestaand++;
+          } else {
+            nieuw++;
+          }
+        }
+
+        resolve({ nieuw, bestaand });
+      };
+
+      ophalen.onerror = () => reject(ophalen.error);
+      tx.oncomplete = () => db.close();
+      tx.onerror = () => {
+        db.close();
+        reject(tx.error);
+      };
+    };
+
+    verzoek.onerror = () => reject(verzoek.error);
+  });
+}
+
+  async function vergelijkBackup(bestand) {
+  try {
+    if (!bestand) return;
+
+    if (bestand.size > 30 * 1024 * 1024) {
+      alert('Back-upbestand is te groot.');
+      return;
+    }
+
+    const backup = JSON.parse(await bestand.text());
+
+    if (
+      backup.versie !== 1 ||
+      !backup.mappenEnNotities ||
+      !Array.isArray(backup.mappenEnNotities.folders) ||
+      !Array.isArray(backup.mappenEnNotities.notes) ||
+      !Array.isArray(backup.media)
+    ) {
+      alert('Ongeldig back-upbestand.');
+      return;
+    }
+
+    const mappen = controleerHerstelMappen(
+      backup.mappenEnNotities.folders
+    );
+
+    const media = await controleerHerstelMedia(backup.media);
+
+    alert(
+      'Memoaris back-upvergelijking\n\n' +
+      'Nieuwe mappen: ' + mappen.nieuw +
+      '\nBestaande mappen: ' + mappen.bestaand +
+      '\nNieuwe foto’s/video’s: ' + media.nieuw +
+      '\nBestaande foto’s/video’s: ' + media.bestaand +
+      '\nNotities in back-up: ' + backup.mappenEnNotities.notes.length +
+      '\n\nEr is niets gewijzigd.'
+    );
+
+  } catch (fout) {
+    console.error(fout);
+    alert('Vergelijking mislukt. Er is niets gewijzigd.');
   }
 }
  function toonMedia(event) {
