@@ -119,6 +119,18 @@ textarea{min-height:140px;resize:vertical}
 
 <input id="herstelTestInput" type="file" accept=".json,application/json" hidden
   onchange="testBackupHerstel(this.files[0]); this.value='';">
+
+  <button class="action" onclick="document.getElementById('voorbeeldBackupInput').click()">
+  👁️ Back-up voorvertoning
+</button>
+
+<input
+  id="voorbeeldBackupInput"
+  type="file"
+  accept=".json,application/json"
+  hidden
+  onchange="voorbeeldBackupHerstel(this.files[0]); this.value='';"
+>
 <p class="muted">Maak je eigen mappen en submappen.</p>
  <div id="mediaButtons">
   <button onclick="document.getElementById('galleryInput').click()">
@@ -729,6 +741,50 @@ async function maakBackup() {
   } catch (fout) {
     console.error(fout);
     alert('Hersteltest mislukt. Bestaande gegevens zijn niet gewijzigd.');
+  }
+}
+
+  async function voorbeeldBackupHerstel(bestand) {
+  try {
+    if (!bestand) return;
+
+    if (bestand.size > 30 * 1024 * 1024) {
+      alert('Back-upbestand is te groot.');
+      return;
+    }
+
+    const backup = JSON.parse(await bestand.text());
+
+    if (
+      backup.versie !== 1 ||
+      !backup.mappenEnNotities ||
+      !Array.isArray(backup.mappenEnNotities.folders) ||
+      !Array.isArray(backup.mappenEnNotities.notes) ||
+      !Array.isArray(backup.media)
+    ) {
+      alert('Ongeldig Memoaris-back-upbestand.');
+      return;
+    }
+
+    const aantalMappen = function tel(mappen) {
+      return mappen.reduce((totaal, map) => {
+        return totaal + 1 +
+          (Array.isArray(map.children) ? tel(map.children) : 0);
+      }, 0);
+    };
+
+    alert(
+      'Voorvertoning back-up\n\n' +
+      'Mappen inclusief submappen: ' +
+      aantalMappen(backup.mappenEnNotities.folders) +
+      '\nNotities: ' + backup.mappenEnNotities.notes.length +
+      '\nFoto’s en video’s: ' + backup.media.length +
+      '\n\nEr is niets gewijzigd.'
+    );
+
+  } catch (fout) {
+    console.error(fout);
+    alert('Voorvertoning mislukt. Er is niets gewijzigd.');
   }
 }
  function toonMedia(event) {
