@@ -107,6 +107,11 @@ textarea{min-height:140px;resize:vertical}
   <button class="action" onclick="maakBackup()">
   📥 Back-up maken
 </button>
+  <button class="action" onclick="document.getElementById('backupInput').click()">
+  📂 Back-up controleren
+</button>
+<input id="backupInput" type="file" accept=".json,application/json" hidden
+  onchange="controleerBackup(this.files[0]); this.value='';">
 <p class="muted">Maak je eigen mappen en submappen.</p>
  <div id="mediaButtons">
   <button onclick="document.getElementById('galleryInput').click()">
@@ -625,6 +630,46 @@ async function maakBackup() {
   } catch (fout) {
     console.error('Back-up mislukt:', fout);
     alert('Back-up maken mislukt. Er is niets verwijderd.');
+  }
+}
+  async function controleerBackup(bestand) {
+  try {
+    if (!bestand) return;
+
+    if (bestand.size > 30 * 1024 * 1024) {
+      alert('Back-upbestand is te groot voor deze test.');
+      return;
+    }
+
+    const tekst = await bestand.text();
+    const backup = JSON.parse(tekst);
+
+    if (
+      backup.versie !== 1 ||
+      !backup.mappenEnNotities ||
+      !Array.isArray(backup.mappenEnNotities.folders) ||
+      !Array.isArray(backup.mappenEnNotities.notes) ||
+      !Array.isArray(backup.media) ||
+      !backup.media.every(item =>
+        typeof item.id === 'string' &&
+        typeof item.inhoud === 'string' &&
+        item.inhoud.startsWith('data:')
+      )
+    ) {
+      alert('Dit is geen geldig Memoaris-back-upbestand.');
+      return;
+    }
+
+    alert(
+      'Back-up gecontroleerd!\n\n' +
+      'Mappen: ' + backup.mappenEnNotities.folders.length +
+      '\nNotities: ' + backup.mappenEnNotities.notes.length +
+      '\nFoto’s en video’s: ' + backup.media.length +
+      '\n\nEr is niets gewijzigd.'
+    );
+  } catch (fout) {
+    console.error(fout);
+    alert('Het back-upbestand kon niet worden gelezen.');
   }
 }
  function toonMedia(event) {
