@@ -107,9 +107,7 @@ textarea{min-height:140px;resize:vertical}
   <button class="action" onclick="maakBackup()">
   📥 Back-up maken
 </button>
-  <button class="action" onclick="document.getElementById('backupInput').click()">
-  📂 Back-up controleren
-</button>
+ 
   
 <button class="action" onclick="document.getElementById('herstelBackupInput').click()">
   📥 Back-up herstellen
@@ -126,16 +124,10 @@ textarea{min-height:140px;resize:vertical}
 <input id="backupInput" type="file" accept=".json,application/json" hidden
   onchange="controleerBackup(this.files[0]); this.value='';">
 
-  <button class="action" onclick="document.getElementById('herstelTestInput').click()">
-  🧪 Back-up hersteltest
-</button>
+  
 
 <input id="herstelTestInput" type="file" accept=".json,application/json" hidden
-  onchange="testBackupHerstel(this.files[0]); this.value='';">
-
-  <button class="action" onclick="document.getElementById('voorbeeldBackupInput').click()">
-  👁️ Back-up voorvertoning
-</button>
+  onchange="testBackupHerstel(this.files[0]); 
 
 <input
   id="voorbeeldBackupInput"
@@ -145,9 +137,7 @@ textarea{min-height:140px;resize:vertical}
   onchange="voorbeeldBackupHerstel(this.files[0]); this.value='';"
 >
 
-  <button class="action" onclick="document.getElementById('vergelijkBackupInput').click()">
-  🔍 Back-up vergelijken
-</button>
+  
 
 <input
   id="vergelijkBackupInput"
@@ -157,10 +147,7 @@ textarea{min-height:140px;resize:vertical}
   onchange="vergelijkBackup(this.files[0]); this.value='';"
 >
 
-  <button class="action" onclick="document.getElementById('veiligHerstelInput').click()">
-  🛡️ Herstel veilig controleren
-</button>
-
+  
 <input
   id="veiligHerstelInput"
   type="file"
