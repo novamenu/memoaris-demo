@@ -143,6 +143,18 @@ textarea{min-height:140px;resize:vertical}
   hidden
   onchange="vergelijkBackup(this.files[0]); this.value='';"
 >
+
+  <button class="action" onclick="document.getElementById('veiligHerstelInput').click()">
+  🛡️ Herstel veilig controleren
+</button>
+
+<input
+  id="veiligHerstelInput"
+  type="file"
+  accept=".json,application/json"
+  hidden
+  onchange="controleerVeiligHerstel(this.files[0]); this.value='';"
+>
 <p class="muted">Maak je eigen mappen en submappen.</p>
  <div id="mediaButtons">
   <button onclick="document.getElementById('galleryInput').click()">
@@ -916,6 +928,101 @@ async function maakBackup() {
   } catch (fout) {
     console.error(fout);
     alert('Vergelijking mislukt. Er is niets gewijzigd.');
+  }
+}
+
+  async function leesBackupVoorHerstel(bestand) {
+  if (!bestand) {
+    throw new Error('Geen bestand gekozen.');
+  }
+
+  if (bestand.size > 30 * 1024 * 1024) {
+    throw new Error('Back-upbestand is te groot.');
+  }
+
+  const backup = JSON.parse(await bestand.text());
+
+  if (
+    backup.versie !== 1 ||
+    !backup.mappenEnNotities ||
+    !Array.isArray(backup.mappenEnNotities.folders) ||
+    !Array.isArray(backup.mappenEnNotities.notes) ||
+    !Array.isArray(backup.media)
+  ) {
+    throw new Error('Ongeldige Memoaris-back-up.');
+  }
+
+  if (!backup.media.every(item =>
+    item &&
+    typeof item.id === 'string' &&
+    typeof item.inhoud === 'string' &&
+    item.inhoud.startsWith('data:')
+  )) {
+    throw new Error('De back-up bevat ongeldige media.');
+  }
+
+  return backup;
+}
+
+  function controleerHerstelKoppelingen(backup) {
+  const ids = new Set(['home']);
+
+  function verzamel(mappen) {
+    for (const map of mappen) {
+      if (!map || typeof map.id !== 'string') {
+        throw new Error('Ongeldige map in back-up.');
+      }
+
+      ids.add(map.id);
+
+      if (Array.isArray(map.children)) {
+        verzamel(map.children);
+      }
+    }
+  }
+
+  verzamel(data.folders);
+  verzamel(backup.mappenEnNotities.folders);
+
+  const ontbrekend = backup.media.filter(item =>
+    !ids.has(item.folderId)
+  );
+
+  return { ontbrekend: ontbrekend.length };
+}
+
+  async function controleerVeiligHerstel(bestand) {
+  try {
+    const backup = await leesBackupVoorHerstel(bestand);
+
+    const mappen = controleerHerstelMappen(
+      backup.mappenEnNotities.folders
+    );
+
+    const media = await controleerHerstelMedia(backup.media);
+    const koppelingen = controleerHerstelKoppelingen(backup);
+
+    if (koppelingen.ontbrekend > 0) {
+      alert(
+        'Herstel geblokkeerd!\n\n' +
+        koppelingen.ontbrekend +
+        ' bestanden hebben geen geldige map.'
+      );
+      return;
+    }
+
+    alert(
+      'Herstelcontrole geslaagd!\n\n' +
+      'Nieuwe mappen: ' + mappen.nieuw +
+      '\nBestaande mappen: ' + mappen.bestaand +
+      '\nNieuwe foto’s/video’s: ' + media.nieuw +
+      '\nBestaande foto’s/video’s: ' + media.bestaand +
+      '\n\nEr is niets gewijzigd.'
+    );
+
+  } catch (fout) {
+    console.error(fout);
+    alert('Herstelcontrole mislukt. Er is niets gewijzigd.');
   }
 }
  function toonMedia(event) {
