@@ -603,19 +603,58 @@ function saveNote(){
  document.getElementById('noteText').value='';
  renderNotes();
 }
-function renderNotes(){
- const list=document.getElementById('noteList');
- list.replaceChildren();
- data.notes.forEach(note=>{
-  const div=document.createElement('div');div.className='note';
-  const heading=document.createElement('strong');
-  heading.textContent=note.title;
-  const date=document.createElement('p');
-  date.className='muted';date.textContent=note.date;
-  const body=document.createElement('div');body.textContent=note.body;
-  div.append(heading,date,body);list.append(div);
- });
-} 
+
+function renderNotes() {
+  const lijst = document.getElementById('noteList');
+  lijst.replaceChildren();
+
+  data.notes.forEach((note, index) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'background:white;padding:18px;border-radius:16px;margin:12px 0;';
+
+    const heading = document.createElement('h3');
+    heading.textContent = note.title;
+
+    const date = document.createElement('p');
+    date.className = 'muted';
+    date.textContent = note.date || '';
+
+    const body = document.createElement('div');
+    body.textContent = note.body || '';
+    body.style.whiteSpace = 'pre-wrap';
+
+    const bewerken = document.createElement('button');
+    bewerken.textContent = '✏️ Bewerken';
+
+    bewerken.onclick = () => {
+      const titel = prompt('Nieuwe titel:', note.title);
+      if (titel === null) return;
+
+      const tekst = prompt('Nieuwe tekst:', note.body || '');
+      if (tekst === null) return;
+
+      note.title = titel.trim() || 'Zonder titel';
+      note.body = tekst;
+      persist();
+      renderNotes();
+    };
+
+    const verwijderen = document.createElement('button');
+    verwijderen.textContent = '🗑️ Verwijderen';
+
+    verwijderen.onclick = () => {
+      if (!confirm('Weet je zeker dat je deze notitie wilt verwijderen?')) return;
+
+      data.notes.splice(index, 1);
+      persist();
+      renderNotes();
+    };
+
+    div.append(heading, date, body, bewerken, verwijderen);
+    lijst.append(div);
+  });
+}
+
 
 function bewaarMedia(bestand) { 
   const folderId = path.length ? path[path.length - 1] : 'home';
