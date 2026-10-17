@@ -80,6 +80,12 @@ header {
 /* Twee versies van het logo: donkerblauwe tekst voor licht, lichte tekst voor de donkere modus. */
 .logo { display: block; width: 100%; max-width: 320px; height: auto; margin: 8px auto 12px; }
 
+/* Back-up-herinnering en opslagoverzicht */
+.herinnering { border: 1px solid var(--primair); margin: 0 0 16px; }
+.herinnering p { margin: 4px 0 6px; }
+.opslag { margin: 10px 0 12px; padding: 12px 14px; border-radius: 12px; background: var(--primair-zacht); font-size: 14px; }
+.opslag p { margin: 2px 0; }
+
 /* Labeltje met de map waar een notitie bij hoort */
 .map-label {
   display: inline-block; margin: 0 0 6px; padding: 3px 10px;
@@ -264,6 +270,7 @@ textarea { min-height: 140px; resize: vertical; }
 
 <main>
 <section id="home">
+  <div id="backupHerinnering" class="kaart herinnering" hidden></div>
   <button class="card" onclick="show('albums')">
     <span class="symbol">🖼️</span>
     <span><h2>Mijn Memoaris</h2><p>Foto's, video's en herinneringen</p></span>
@@ -307,10 +314,11 @@ textarea { min-height: 140px; resize: vertical; }
   <div id="backupBlok" class="blok">
     <h3>💾 Back-up</h3>
     <p class="muted">Alles staat alleen op dit toestel. Maak regelmatig een back-up, zodat je niets kwijtraakt als je telefoon stuk of zoek raakt.</p>
+    <div id="opslagInfo" class="opslag"></div>
     <button class="knop zacht" onclick="maakBackup()">📥 Back-up maken</button>
     <button class="knop zacht" onclick="document.getElementById('herstelBackupInput').click()">📤 Back-up herstellen</button>
-    <input id="herstelBackupInput" type="file" accept=".json,application/json" hidden
-           onchange="herstelBackupVeilig(this.files[0]); this.value='';">
+    <input id="herstelBackupInput" type="file" accept=".json,application/json" multiple hidden
+           onchange="herstelBackupVeilig(this.files); this.value='';">
   </div>
 </section>
 
@@ -350,7 +358,6 @@ const DB_NAAM = 'MemoarisMedia';
 // Versie 4 voegt de versleutelde opslag 'privefotos' toe.
 const DB_VERSIE = 4;
 const DERTIG_DAGEN = 30 * 24 * 60 * 60 * 1000;
-const MAX_BACKUP = 20 * 1024 * 1024;
 
 function nieuwId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -601,6 +608,7 @@ function show(page) {
   if (page === 'notes') renderNotes();
   if (page === 'private') renderPrivate();
   if (page === 'prullenbak') laadPrullenbak();
+  if (page === 'home') controleerBackupHerinnering();
   window.scrollTo(0, 0);
 }
 
@@ -1173,6 +1181,7 @@ async function laadFotos() {
     .filter(foto => foto.folderId === huidigeMap && !foto.verwijderdOp)
     .sort((a, b) => (b.datum || '').localeCompare(a.datum || ''));
 
+  if (!path.length) toonOpslag(); // aantallen bijwerken na elke wijziging
   document.getElementById('leegAlbum').hidden = hier.length > 0 || currentFolders().length > 0 ||
     (path.length > 0 && data.notes.some(note => note.folderId === huidigeMap));
 
@@ -1765,74 +1774,206 @@ function leesAlsDataUrl(blob) {
   });
 }
 
+const DEEL_GROOTTE = 40 * 1024 * 1024; // grotere back-ups worden in delen van ~40 MB gesplitst
+const BACKUP_KEY = 'memoaris-laatste-backup';
+const LATER_KEY = 'memoaris-backup-later';
+
+function formatGrootte(bytes) {
+  if (!bytes) return '0 MB';
+  if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + ' kB';
+  if (bytes < 1024 * 1024 * 1024) return Math.round(bytes / (1024 * 1024)) + ' MB';
+  return (bytes / (1024 * 1024 * 1024)).toFixed(1).replace('.', ',') + ' GB';
+}
+
+function leesGetal(sleutel) {
+  try { return Number(localStorage.getItem(sleutel)) || 0; } catch (e) { return 0; }
+}
+
+function downloadBestand({ naam, blob }) {
+  const url = URL.createObjectURL(blob);
+  const link = el('a', { href: url, download: naam });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+}
+
+// Maakt één back-upbestand. De JSON wordt in stukjes opgebouwd, zodat grote
+// foto's en video's niet allemaal tegelijk in het geheugen hoeven te staan.
+async function maakBackupDeel(inhoud, { backupId, datum, deel, aantal, kluis }) {
+  const kop = JSON.stringify({ versie: 1, gemaaktOp: datum, backupId, deel, aantal, mappenEnNotities: data });
+  const stukken = [kop.slice(0, -1) + ',"media":['];
+
+  let eerste = true;
+  for (const { soort, item } of inhoud) {
+    if (soort !== 'media') continue;
+    const { bestand, ...gegevens } = item;
+    stukken.push((eerste ? '' : ',') + JSON.stringify({
+      ...gegevens,
+      bestandsnaam: bestand.name || 'herinnering',
+      bestandstype: bestand.type,
+      inhoud: await leesAlsDataUrl(bestand)
+    }));
+    eerste = false;
+  }
+  stukken.push(']');
+
+  // Private gaat mee zoals hij is: versleuteld. Alleen met de pincode leesbaar.
+  if (kluis) {
+    const fotos = inhoud.filter(i => i.soort === 'prive').map(({ item }) => ({
+      id: item.id, iv: naarB64(item.iv), ct: naarB64(item.ct), type: item.type, datum: item.datum
+    }));
+    stukken.push(',"prive":' + JSON.stringify({ kluis, fotos }));
+  }
+  stukken.push('}');
+
+  const naam = 'memoaris-backup-' + datum.slice(0, 10) + (aantal > 1 ? '-deel-' + deel + '-van-' + aantal : '') + '.json';
+  return { naam, blob: new Blob(stukken, { type: 'application/json' }) };
+}
+
+// Bij meerdere delen tikt de gebruiker elk deel zelf aan; dan blokkeert de telefoon de downloads niet.
+async function downloadDelen(bestanden) {
+  const gedaan = new Set();
+  while (gedaan.size < bestanden.length) {
+    const keuze = await toonDialoog({
+      titel: 'Back-up in ' + bestanden.length + ' delen',
+      tekst: 'Je back-up is groot en daarom in delen gesplitst. Download alle delen en bewaar ze samen op een veilige plek.',
+      keuzes: bestanden.map((bestand, i) => ({
+        label: (gedaan.has(i) ? '✓ ' : '📥 ') + 'Deel ' + (i + 1) + ' (' + formatGrootte(bestand.blob.size) + ')',
+        waarde: i
+      })),
+      knoppen: [{ label: gedaan.size ? 'Stoppen' : 'Annuleren', waarde: null, soort: 'zacht' }]
+    });
+    if (keuze === null) break;
+    downloadBestand(bestanden[keuze]);
+    gedaan.add(keuze);
+  }
+  return gedaan.size === bestanden.length;
+}
+
 async function maakBackup() {
   try {
     const fotos = await alleMedia();
     const kluis = leesPrivateKluis();
     const privefotos = kluis ? await metStore('privefotos', 'readonly', s => s.getAll()) : [];
 
-    const totaleGrootte =
-      fotos.reduce((totaal, foto) => totaal + (foto.bestand?.size || 0), 0) +
-      privefotos.reduce((totaal, item) => totaal + (item.ct?.byteLength || 0), 0);
-
-    if (totaleGrootte > MAX_BACKUP) {
-      meld('Je herinneringen zijn samen te groot voor een back-up in deze versie. Er is niets veranderd.');
-      return;
+    // Verdeel alle bestanden over delen van ongeveer DEEL_GROOTTE.
+    const items = [
+      ...fotos.map(item => ({ soort: 'media', item, grootte: item.bestand?.size || 0 })),
+      ...privefotos.map(item => ({ soort: 'prive', item, grootte: item.ct?.byteLength || 0 }))
+    ];
+    const delen = [[]];
+    let huidig = 0;
+    for (const it of items) {
+      if (huidig > 0 && huidig + it.grootte > DEEL_GROOTTE) { delen.push([]); huidig = 0; }
+      delen[delen.length - 1].push(it);
+      huidig += it.grootte;
     }
 
     toast('Back-up wordt gemaakt…');
-
-    const media = [];
-    for (const foto of fotos) {
-      const { bestand, ...gegevens } = foto;
-      media.push({
-        ...gegevens,
-        bestandsnaam: bestand.name || 'herinnering',
-        bestandstype: bestand.type,
-        inhoud: await leesAlsDataUrl(bestand)
-      });
+    const backupId = nieuwId();
+    const datum = new Date().toISOString();
+    const bestanden = [];
+    for (let i = 0; i < delen.length; i++) {
+      bestanden.push(await maakBackupDeel(delen[i], { backupId, datum, deel: i + 1, aantal: delen.length, kluis }));
     }
 
-    // Private gaat mee zoals hij is: versleuteld. Alleen met de pincode leesbaar.
-    const prive = kluis ? {
-      kluis,
-      fotos: privefotos.map(item => ({
-        id: item.id,
-        iv: naarB64(item.iv),
-        ct: naarB64(item.ct),
-        type: item.type,
-        datum: item.datum
-      }))
-    } : null;
+    let compleet = true;
+    if (bestanden.length === 1) downloadBestand(bestanden[0]);
+    else compleet = await downloadDelen(bestanden);
 
-    const backup = {
-      versie: 1,
-      gemaaktOp: new Date().toISOString(),
-      mappenEnNotities: data,
-      media,
-      ...(prive ? { prive } : {})
-    };
+    if (!compleet) {
+      meld('Niet alle delen zijn gedownload. Een back-up is pas compleet als je alle delen hebt.', 'Back-up niet compleet');
+      return;
+    }
 
-    const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = el('a', {
-      href: url,
-      download: 'memoaris-backup-' + new Date().toISOString().slice(0, 10) + '.json'
-    });
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    try {
+      localStorage.setItem(BACKUP_KEY, String(Date.now()));
+      localStorage.removeItem(LATER_KEY);
+    } catch (e) {}
+    document.getElementById('backupHerinnering').hidden = true;
+    toonOpslag();
 
     meld(
-      'Je back-up wordt gedownload. Controleer of het bestand is opgeslagen en bewaar het op een veilige plek, bijvoorbeeld in iCloud of Google Drive.' +
-      (prive ? '\n\nPrivate zit er versleuteld in. Je hebt je pincode nodig om het terug te zetten.' : ''),
+      (bestanden.length > 1
+        ? 'Alle ' + bestanden.length + ' delen zijn gedownload. Bewaar ze samen, bijvoorbeeld in één map in iCloud of Google Drive.'
+        : 'Je back-up wordt gedownload. Controleer of het bestand is opgeslagen en bewaar het op een veilige plek, bijvoorbeeld in iCloud of Google Drive.') +
+      (kluis ? '\n\nPrivate zit er versleuteld in. Je hebt je pincode nodig om het terug te zetten.' : ''),
       'Back-up gemaakt'
     );
   } catch (fout) {
     console.error('Back-up mislukt:', fout);
     meld('De back-up kon niet worden gemaakt. Er is niets verwijderd.');
   }
+}
+
+/* ===================== Back-up-herinnering en opslag ===================== */
+async function controleerBackupHerinnering() {
+  const blok = document.getElementById('backupHerinnering');
+  blok.hidden = true;
+
+  if (Date.now() < leesGetal(LATER_KEY)) return;
+  const laatste = leesGetal(BACKUP_KEY);
+  const dagen = laatste ? Math.floor((Date.now() - laatste) / 86400000) : null;
+  if (dagen !== null && dagen < 14) return;
+
+  let aantal = 0;
+  try { aantal = (await alleMedia()).filter(foto => !foto.verwijderdOp).length; } catch (e) {}
+  if (!aantal && !data.notes.length && !leesPrivateKluis()) return; // nog niets om te bewaren
+
+  blok.replaceChildren(
+    el('h3', { textContent: '💾 Tijd voor een back-up' }),
+    el('p', {
+      className: 'muted',
+      textContent: dagen === null
+        ? 'Je hebt nog nooit een back-up gemaakt. Zonder back-up ben je alles kwijt als je telefoon stuk of zoek raakt.'
+        : 'Je laatste back-up is ' + dagen + ' dagen geleden. Maak een nieuwe, zodat je recente herinneringen ook veilig zijn.'
+    }),
+    el('button', { className: 'knop', textContent: '📥 Nu back-up maken', onclick: () => maakBackup() }),
+    el('button', {
+      className: 'knop zacht',
+      textContent: 'Later',
+      onclick: () => {
+        try { localStorage.setItem(LATER_KEY, String(Date.now() + 3 * 86400000)); } catch (e) {}
+        blok.hidden = true;
+      }
+    })
+  );
+  blok.hidden = false;
+}
+
+async function toonOpslag() {
+  const vak = document.getElementById('opslagInfo');
+  if (!vak) return;
+  const regels = [];
+
+  try {
+    const alles = await alleMedia();
+    const media = alles.filter(foto => !foto.verwijderdOp);
+    const videos = media.filter(foto => foto.bestand?.type?.startsWith('video/')).length;
+    const fotos = media.length - videos;
+    regels.push('📷 ' + fotos + (fotos === 1 ? ' foto' : ' foto’s') + ', ' +
+      videos + (videos === 1 ? ' video' : ' video’s') + ', ' +
+      data.notes.length + (data.notes.length === 1 ? ' notitie' : ' notities'));
+
+    // Zelf optellen: dat is betrouwbaarder dan de schatting van de browser.
+    const privefotos = leesPrivateKluis() ? await metStore('privefotos', 'readonly', s => s.getAll()) : [];
+    const totaal =
+      alles.reduce((som, foto) => som + (foto.bestand?.size || 0), 0) +
+      privefotos.reduce((som, item) => som + (item.ct?.byteLength || 0), 0);
+    regels.push('💽 Samen ongeveer ' + formatGrootte(totaal) + (alles.length > media.length ? ' (inclusief prullenbak)' : ''));
+  } catch (e) {}
+
+  const laatste = leesGetal(BACKUP_KEY);
+  regels.push('💾 Laatste back-up: ' + (laatste ? formatDatum(new Date(laatste).toISOString()) : 'nog nooit'));
+
+  try {
+    if (navigator.storage && navigator.storage.persisted && !isGeinstalleerd() && !(await navigator.storage.persisted())) {
+      regels.push('⚠️ Je browser kan deze opslag wissen als je de app lang niet gebruikt. Zet Memoaris op je beginscherm en maak regelmatig een back-up.');
+    }
+  } catch (e) {}
+
+  vak.replaceChildren(...regels.map(tekst => el('p', { textContent: tekst })));
 }
 
 /* ===================== Back-up herstellen ===================== */
@@ -1848,13 +1989,13 @@ function isPriveBackupGeldig(prive) {
 
 async function leesBackupVoorHerstel(bestand) {
   if (!bestand) throw new Error('Geen bestand gekozen.');
-  if (bestand.size > 32 * 1024 * 1024) throw new Error('Het back-upbestand is te groot.');
+  if (bestand.size > 400 * 1024 * 1024) throw new Error('"' + bestand.name + '" is te groot om terug te zetten.');
 
   let backup;
   try {
     backup = JSON.parse(await bestand.text());
   } catch (e) {
-    throw new Error('Dit is geen Memoaris-back-up.');
+    throw new Error('"' + bestand.name + '" is geen Memoaris-back-up.');
   }
 
   if (
@@ -2009,59 +2150,92 @@ async function herstelPrive(prive) {
     : 'Private was al volledig.';
 }
 
-async function herstelBackupVeilig(bestand) {
-  if (!bestand) return;
+// Zet één back-upbestand (of één deel) terug. Alles is aanvullend: wat er al is, blijft staan.
+async function herstelEenDeel(bestand, telling) {
+  const backup = await leesBackupVoorHerstel(bestand);
 
-  try {
-    const backup = await leesBackupVoorHerstel(bestand);
-    const nieuweMappen = bereidHerstelMappenVoor(backup.mappenEnNotities.folders);
-    const nieuweNotities = bereidHerstelNotitiesVoor(backup.mappenEnNotities.notes);
+  if (controleerHerstelKoppelingen(backup) > 0) {
+    throw new Error('Sommige foto’s in "' + bestand.name + '" horen bij een map die niet bestaat.');
+  }
+  const ids = new Set();
+  for (const item of backup.media) {
+    if (ids.has(item.id)) throw new Error('"' + bestand.name + '" bevat dubbele foto’s.');
+    ids.add(item.id);
+  }
 
-    if (controleerHerstelKoppelingen(backup) > 0) {
-      meld('Herstel gestopt: sommige foto’s in de back-up horen bij een map die niet bestaat. Er is niets veranderd.');
-      return;
+  // Eerst alle foto's uit dit deel controleren, dan pas opslaan.
+  const bestanden = [];
+  for (const item of backup.media) {
+    bestanden.push({ item, bestandMedia: await herstelMediaBestand(item) });
+  }
+
+  const nieuweMappen = bereidHerstelMappenVoor(backup.mappenEnNotities.folders);
+  const nieuweNotities = bereidHerstelNotitiesVoor(backup.mappenEnNotities.notes);
+
+  for (const { item, bestandMedia } of bestanden) {
+    if (await slaHersteldMediaOp(item, bestandMedia)) telling.media++;
+  }
+  telling.notities += nieuweNotities.length - data.notes.length;
+  data.folders = nieuweMappen;
+  data.notes = nieuweNotities;
+  persist();
+
+  if (backup.prive) telling.prive = await herstelPrive(backup.prive);
+  if (backup.backupId) {
+    telling.backupId = telling.backupId || backup.backupId;
+    telling.aantal = backup.aantal || 1;
+    if (backup.backupId === telling.backupId) telling.delen.add(backup.deel || 1);
+  }
+}
+
+async function herstelBackupVeilig(lijst) {
+  // Bewust direct kopiëren: de bestandenlijst wordt geleegd zodra het invoerveld reset.
+  const bestanden = Array.from(lijst || []).sort((a, b) => a.name.localeCompare(b.name, 'nl', { numeric: true }));
+  if (!bestanden.length) return;
+
+  const ok = await bevestig(
+    'Je huidige herinneringen blijven bewaard. Alles wat ontbreekt, wordt toegevoegd.' +
+    (bestanden.length > 1 ? '\n\nJe hebt ' + bestanden.length + ' bestanden gekozen. Die worden één voor één teruggezet.' : ''),
+    { titel: 'Back-up terugzetten?', ok: 'Terugzetten' }
+  );
+  if (!ok) return;
+
+  const telling = { media: 0, notities: 0, prive: '', backupId: null, aantal: 1, delen: new Set() };
+  let fout = null;
+
+  for (let i = 0; i < bestanden.length; i++) {
+    if (bestanden.length > 1) toast('Deel ' + (i + 1) + ' van ' + bestanden.length + ' terugzetten…');
+    try {
+      await herstelEenDeel(bestanden[i], telling);
+    } catch (e) {
+      console.error(e);
+      fout = e;
+      break;
     }
+  }
 
-    const ids = new Set();
-    for (const item of backup.media) {
-      if (ids.has(item.id)) throw new Error('De back-up bevat dubbele foto’s.');
-      ids.add(item.id);
-    }
+  renderFolders();
 
-    const bestanden = [];
-    for (const item of backup.media) {
-      bestanden.push({ item, bestandMedia: await herstelMediaBestand(item) });
-    }
+  const regels = [
+    telling.media + ' foto’s en video’s toegevoegd.',
+    telling.notities + ' notities toegevoegd.'
+  ];
+  if (telling.prive) regels.push(telling.prive);
 
-    const ok = await bevestig(
-      'Je huidige herinneringen blijven bewaard. Alles wat ontbreekt, wordt toegevoegd.' +
-      (backup.prive ? '\n\nDe back-up bevat ook een versleutelde privéruimte.' : ''),
-      { titel: 'Back-up terugzetten?', ok: 'Terugzetten' }
-    );
-    if (!ok) return;
+  const ontbreekt = [];
+  for (let deel = 1; deel <= telling.aantal; deel++) if (!telling.delen.has(deel)) ontbreekt.push(deel);
+  if (!fout && telling.backupId && ontbreekt.length) {
+    regels.push('Let op: deel ' + ontbreekt.join(', ') + ' van deze back-up ontbreekt nog. Zet dat deel ook terug om alles compleet te hebben.');
+  }
 
-    let toegevoegd = 0;
-    for (const { item, bestandMedia } of bestanden) {
-      if (await slaHersteldMediaOp(item, bestandMedia)) toegevoegd++;
-    }
-
-    const notitiesToegevoegd = nieuweNotities.length - data.notes.length;
-    data.folders = nieuweMappen;
-    data.notes = nieuweNotities;
-    persist();
-
-    const priveMelding = backup.prive ? '\n\n' + await herstelPrive(backup.prive) : '';
-
-    renderFolders();
+  if (fout) {
     meld(
-      toegevoegd + ' foto’s en video’s toegevoegd.\n' +
-      notitiesToegevoegd + ' notities toegevoegd.' +
-      priveMelding,
-      'Back-up teruggezet'
+      'Het terugzetten is gestopt: ' + fout.message +
+      '\n\nWat al was teruggezet, blijft bewaard:\n' + regels.join('\n'),
+      'Niet helemaal gelukt'
     );
-  } catch (fout) {
-    console.error(fout);
-    meld('Het terugzetten is niet (volledig) gelukt: ' + fout.message);
+  } else {
+    meld(regels.join('\n\n'), 'Back-up teruggezet');
   }
 }
 
@@ -2138,6 +2312,7 @@ let welkomGezien = false;
 try { welkomGezien = localStorage.getItem(WELKOM_KEY) === '1'; } catch (e) {}
 // Bestaande gebruikers (met mappen of notities) slaan het welkomstscherm over.
 if (!welkomGezien && !data.folders.length && !data.notes.length) toonWelkom();
+controleerBackupHerinnering();
 </script>
 </body>
 </html>
