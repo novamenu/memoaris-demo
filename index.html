@@ -247,8 +247,8 @@ textarea{min-height:140px;resize:vertical}
 </section>
 
 <section id="private" hidden>
-<button class="back" onclick="show('home')">← Terug</button>
-<h2>🔒 Private</h2>
+<button class="back" onclick="privateTerug()">← Terug</button>
+<h2 id="privateTitel">🔒 Private</h2>
 <div id="privateInhoud"></div>
 </section>
 
@@ -1271,6 +1271,7 @@ function vergrendelPrivate() {
   clearTimeout(privateTimer);
   document.getElementById('priveViewer')?.remove();
   ruimPrivateUrlsOp();
+  privateWeergave = 'menu'; // na ontgrendelen altijd eerst het menu
 }
 
 /* Privéfoto's: elk bestand wordt apart versleuteld in IndexedDB bewaard. */
@@ -1499,9 +1500,21 @@ function renderPrivate() {
     return;
   }
 
+  const titels = {
+    menu: '🔒 Private',
+    fotos: '🖼️ Privéfoto’s',
+    notities: '📝 Privénotities'
+  };
+  const ontgrendeld = leesPrivateKluis() && privateSleutel;
+  document.getElementById('privateTitel').textContent =
+    ontgrendeld ? titels[privateWeergave] : '🔒 Private';
+
   if (!leesPrivateKluis()) return toonPinInstellen(doos);
   if (!privateSleutel) return toonPinInvoer(doos);
-  toonPrivateNotities(doos);
+
+  if (privateWeergave === 'fotos') toonPrivateFotos(doos);
+  else if (privateWeergave === 'notities') toonPrivateNotities(doos);
+  else toonPrivateMenu(doos);
 }
 
 function toonPinInstellen(doos) {
@@ -1601,10 +1614,75 @@ function toonPinInvoer(doos) {
   setTimeout(() => pin.focus(), 50);
 }
 
-function toonPrivateNotities(doos) {
+// Welk scherm binnen Private open is: 'menu', 'fotos' of 'notities'.
+let privateWeergave = 'menu';
+
+function openPrivateWeergave(weergave) {
+  privateWeergave = weergave;
+  renderPrivate();
+  window.scrollTo(0, 0);
+}
+
+// De terugknop gaat binnen Private eerst terug naar het menu.
+function privateTerug() {
+  if (privateSleutel && privateWeergave !== 'menu') openPrivateWeergave('menu');
+  else show('home');
+}
+
+function vergrendelKnop() {
   const slot = el('button', { className: 'action', textContent: '🔒 Vergrendelen' });
   slot.onclick = vergrendelEnToon;
+  return slot;
+}
 
+function menuKaart(symbool, titel, uitleg, onclick) {
+  return el('button', { className: 'card', onclick },
+    el('span', { className: 'symbol', textContent: symbool }),
+    el('span', {},
+      el('h2', { textContent: titel }),
+      el('p', { textContent: uitleg })
+    )
+  );
+}
+
+function toonPrivateMenu(doos) {
+  const aantal = privateNotities.length;
+  doos.append(
+    el('p', { className: 'muted', textContent: 'Ontgrendeld. Vergrendelt automatisch na 2 minuten zonder activiteit.' }),
+    menuKaart('🖼️', 'Privéfoto’s', 'Foto’s en video’s, versleuteld bewaard',
+      () => openPrivateWeergave('fotos')),
+    menuKaart('📝', 'Privénotities',
+      aantal === 1 ? '1 notitie' : aantal + ' notities',
+      () => openPrivateWeergave('notities')),
+    vergrendelKnop()
+  );
+}
+
+function toonPrivateFotos(doos) {
+  const galerijInput = el('input', { type: 'file', accept: 'image/*,video/*', multiple: true, hidden: true });
+  galerijInput.onchange = voegPrivefotosToe;
+
+  const cameraInput = el('input', { type: 'file', accept: 'image/*', hidden: true });
+  cameraInput.setAttribute('capture', 'environment');
+  cameraInput.onchange = voegPrivefotosToe;
+
+  const fotoKnop = el('button', { textContent: '🖼️ Foto’s toevoegen' });
+  fotoKnop.onclick = () => kiesPriveBestand(galerijInput);
+  const cameraKnop = el('button', { textContent: '📷 Camera' });
+  cameraKnop.onclick = () => kiesPriveBestand(cameraInput);
+
+  const galerij = el('div', { className: 'privegalerij' });
+
+  doos.append(
+    el('div', { className: 'mediaknoppen' }, fotoKnop, cameraKnop, galerijInput, cameraInput),
+    galerij,
+    vergrendelKnop()
+  );
+
+  laadPrivefotos(galerij);
+}
+
+function toonPrivateNotities(doos) {
   const titel = el('input', { placeholder: 'Titel' });
   const tekst = el('textarea', { placeholder: 'Schrijf hier iets privés...' });
   const opslaan = el('button', { className: 'action', textContent: 'Privé bewaren' });
@@ -1659,32 +1737,7 @@ function toonPrivateNotities(doos) {
     ));
   });
 
-  // Privéfoto's
-  const galerijInput = el('input', { type: 'file', accept: 'image/*,video/*', multiple: true, hidden: true });
-  galerijInput.onchange = voegPrivefotosToe;
-
-  const cameraInput = el('input', { type: 'file', accept: 'image/*', hidden: true });
-  cameraInput.setAttribute('capture', 'environment');
-  cameraInput.onchange = voegPrivefotosToe;
-
-  const fotoKnop = el('button', { textContent: '🖼️ Foto’s toevoegen' });
-  fotoKnop.onclick = () => kiesPriveBestand(galerijInput);
-  const cameraKnop = el('button', { textContent: '📷 Camera' });
-  cameraKnop.onclick = () => kiesPriveBestand(cameraInput);
-
-  const galerij = el('div', { className: 'privegalerij' });
-
-  doos.append(
-    el('p', { className: 'muted', textContent: 'Ontgrendeld. Vergrendelt automatisch na 2 minuten zonder activiteit.' }),
-    slot,
-    el('h3', { textContent: '🖼️ Privéfoto’s' }),
-    el('div', { className: 'mediaknoppen' }, fotoKnop, cameraKnop, galerijInput, cameraInput),
-    galerij,
-    el('h3', { textContent: '📝 Privénotities' }),
-    titel, tekst, opslaan, lijst
-  );
-
-  laadPrivefotos(galerij);
+  doos.append(titel, tekst, opslaan, lijst, vergrendelKnop());
 }
 
 // Elke aanraking of toetsaanslag in Private houdt hem langer open.
