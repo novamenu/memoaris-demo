@@ -108,6 +108,33 @@ textarea{min-height:140px;resize:vertical}
 .folder button {
   flex-shrink: 0;
 }
+
+/* Privéruimte */
+.waarschuwing {
+  background: #fff4e5;
+  color: #8a4b00;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.notitiekaart {
+  background: white;
+  padding: 18px;
+  border-radius: 16px;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+
+.notitiekaart button {
+  border: 0;
+  background: #eaf4ff;
+  color: #246aab;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 10px 8px 0 0;
+}
 </style>
 </head>
 <body>
@@ -185,8 +212,7 @@ textarea{min-height:140px;resize:vertical}
 <section id="private" hidden>
 <button class="back" onclick="show('home')">← Terug</button>
 <h2>🔒 Private</h2>
-<p>Hier bouwen we later jouw beveiligde privéruimte met een pincode en Face ID.</p>
-<p class="muted">Bewaar hier nog geen privégegevens. Dit scherm is nog niet beveiligd.</p>
+<div id="privateInhoud"></div>
 </section>
 
 <section id="prullenbak" hidden>
@@ -321,10 +347,14 @@ function ruimUrlsOp() {
 
 /* ===================== Navigatie ===================== */
 function show(page) {
+  // Wie de privéruimte verlaat, vergrendelt hem meteen.
+  if (page !== 'private') vergrendelPrivate();
+
   document.querySelectorAll('main section').forEach(s => s.hidden = true);
   document.getElementById(page).hidden = false;
   if (page === 'albums') renderFolders();
   if (page === 'notes') renderNotes();
+  if (page === 'private') renderPrivate();
   if (page === 'prullenbak') laadPrullenbak();
   window.scrollTo(0, 0);
 }
@@ -1068,6 +1098,352 @@ async function herstelBackupVeilig(bestand) {
     alert('Herstel niet volledig uitgevoerd: ' + fout.message);
   }
 }
+
+/* ===================== Private (versleuteld met pincode) ===================== */
+// De privénotities worden versleuteld (AES-GCM) met een sleutel die uit de
+// pincode wordt afgeleid (PBKDF2). De pincode zelf wordt nergens opgeslagen.
+const PRIVATE_KEY = 'memoaris-private-v1';
+const POGINGEN_KEY = 'memoaris-private-pogingen';
+const PBKDF2_RONDES = 600000;
+const AUTO_SLOT_MS = 2 * 60 * 1000;
+
+let privateSleutel = null; // bestaat alleen in het geheugen zolang Private open is
+let privateNotities = [];
+let privateTimer = null;
+
+function el(tag, props = {}, ...kinderen) {
+  const element = document.createElement(tag);
+  Object.assign(element, props);
+  element.append(...kinderen);
+  return element;
+}
+
+function naarB64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let tekst = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    tekst += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(tekst);
+}
+
+function vanB64(b64) {
+  const tekst = atob(b64);
+  const bytes = new Uint8Array(tekst.length);
+  for (let i = 0; i < tekst.length; i++) bytes[i] = tekst.charCodeAt(i);
+  return bytes;
+}
+
+function leesPrivateKluis() {
+  try {
+    const kluis = JSON.parse(localStorage.getItem(PRIVATE_KEY));
+    return kluis && kluis.versie === 1 ? kluis : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function maakSleutel(pin, salt, rondes) {
+  const basis = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: rondes, hash: 'SHA-256' },
+    basis,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function bewaarPrivate() {
+  const kluis = leesPrivateKluis();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const versleuteld = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    privateSleutel,
+    new TextEncoder().encode(JSON.stringify(privateNotities))
+  );
+  localStorage.setItem(PRIVATE_KEY, JSON.stringify({
+    versie: 1,
+    salt: kluis.salt,
+    rondes: kluis.rondes,
+    iv: naarB64(iv),
+    ct: naarB64(versleuteld)
+  }));
+}
+
+async function stelPinIn(pin) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  privateSleutel = await maakSleutel(pin, salt, PBKDF2_RONDES);
+  privateNotities = [];
+  localStorage.setItem(PRIVATE_KEY, JSON.stringify({
+    versie: 1, salt: naarB64(salt), rondes: PBKDF2_RONDES
+  }));
+  await bewaarPrivate();
+}
+
+// Geeft true als de pincode klopt. Een verkeerde code kan niet ontsleutelen.
+async function ontgrendel(pin) {
+  const kluis = leesPrivateKluis();
+  const sleutel = await maakSleutel(pin, vanB64(kluis.salt), kluis.rondes);
+  try {
+    const leesbaar = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: vanB64(kluis.iv) }, sleutel, vanB64(kluis.ct));
+    privateNotities = JSON.parse(new TextDecoder().decode(leesbaar));
+    privateSleutel = sleutel;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function vergrendelPrivate() {
+  privateSleutel = null;
+  privateNotities = [];
+  clearTimeout(privateTimer);
+}
+
+function vergrendelEnToon() {
+  vergrendelPrivate();
+  if (!document.getElementById('private').hidden) renderPrivate();
+}
+
+function startAutoSlot() {
+  clearTimeout(privateTimer);
+  privateTimer = setTimeout(vergrendelEnToon, AUTO_SLOT_MS);
+}
+
+// Wijzigt de notities en slaat versleuteld op; bij een fout terug naar de oude stand.
+async function wijzigPrivate(wijziging) {
+  const vorige = privateNotities;
+  privateNotities = wijziging(privateNotities.map(n => ({ ...n })));
+  try {
+    await bewaarPrivate();
+    return true;
+  } catch (fout) {
+    console.error(fout);
+    privateNotities = vorige;
+    alert('Opslaan is niet gelukt.');
+    return false;
+  }
+}
+
+/* Te veel foute pogingen: steeds langer wachten (blijft bewaard na herladen). */
+function leesPogingen() {
+  try {
+    return JSON.parse(localStorage.getItem(POGINGEN_KEY)) || { aantal: 0, tot: 0 };
+  } catch (e) {
+    return { aantal: 0, tot: 0 };
+  }
+}
+
+function registreerFout() {
+  const pogingen = leesPogingen();
+  pogingen.aantal++;
+  if (pogingen.aantal >= 5) {
+    pogingen.tot = Date.now() + Math.min(30000 * 2 ** (pogingen.aantal - 5), 3600000);
+  }
+  localStorage.setItem(POGINGEN_KEY, JSON.stringify(pogingen));
+}
+
+function resetPogingen() {
+  localStorage.removeItem(POGINGEN_KEY);
+}
+
+function resterendeBlokkade() {
+  return Math.max(0, leesPogingen().tot - Date.now());
+}
+
+function pinVeld(placeholder) {
+  const veld = el('input', { type: 'password', placeholder, maxLength: 6, autocomplete: 'off' });
+  veld.inputMode = 'numeric';
+  veld.pattern = '[0-9]*';
+  return veld;
+}
+
+/* Schermen */
+function renderPrivate() {
+  const doos = document.getElementById('privateInhoud');
+  doos.replaceChildren();
+
+  if (!window.crypto || !crypto.subtle) {
+    doos.append(el('p', {
+      className: 'waarschuwing',
+      textContent: 'De privéruimte werkt alleen als de app via een https-adres geopend is.'
+    }));
+    return;
+  }
+
+  if (!leesPrivateKluis()) return toonPinInstellen(doos);
+  if (!privateSleutel) return toonPinInvoer(doos);
+  toonPrivateNotities(doos);
+}
+
+function toonPinInstellen(doos) {
+  const pin1 = pinVeld('Kies een pincode van 6 cijfers');
+  const pin2 = pinVeld('Herhaal je pincode');
+  const melding = el('p', { className: 'muted' });
+  const knop = el('button', { className: 'action', textContent: 'Pincode instellen' });
+
+  knop.onclick = async () => {
+    if (!/^\d{6}$/.test(pin1.value)) { melding.textContent = 'Gebruik precies 6 cijfers.'; return; }
+    if (pin1.value !== pin2.value) { melding.textContent = 'De pincodes zijn niet gelijk.'; return; }
+
+    knop.disabled = true;
+    melding.textContent = 'Bezig met beveiligen…';
+    try {
+      await stelPinIn(pin1.value);
+      resetPogingen();
+      startAutoSlot();
+      renderPrivate();
+    } catch (fout) {
+      console.error(fout);
+      knop.disabled = false;
+      melding.textContent = 'Instellen is niet gelukt.';
+    }
+  };
+
+  doos.append(
+    el('p', { textContent: 'Stel een pincode in voor je privéruimte. Alles wat je hier bewaart, wordt versleuteld met deze code.' }),
+    el('p', { className: 'waarschuwing', textContent: 'Let op: vergeet je je pincode, dan kan niemand je privénotities terughalen.' }),
+    pin1, pin2, knop, melding
+  );
+}
+
+function toonPinInvoer(doos) {
+  const pin = pinVeld('Pincode');
+  const melding = el('p', { className: 'muted' });
+  const knop = el('button', { className: 'action', textContent: 'Ontgrendelen' });
+
+  const probeer = async () => {
+    const wacht = resterendeBlokkade();
+    if (wacht > 0) {
+      melding.textContent = 'Te veel pogingen. Probeer het over ' + Math.ceil(wacht / 1000) + ' seconden opnieuw.';
+      return;
+    }
+    if (!/^\d{6}$/.test(pin.value)) { melding.textContent = 'Vul je 6 cijfers in.'; return; }
+
+    knop.disabled = true;
+    melding.textContent = 'Controleren…';
+
+    let gelukt = false;
+    try { gelukt = await ontgrendel(pin.value); }
+    catch (fout) { console.error(fout); }
+
+    if (gelukt) {
+      resetPogingen();
+      startAutoSlot();
+      renderPrivate();
+      return;
+    }
+
+    registreerFout();
+    pin.value = '';
+    knop.disabled = false;
+    const nieuweWacht = resterendeBlokkade();
+    melding.textContent = nieuweWacht > 0
+      ? 'Onjuiste pincode. Wacht ' + Math.ceil(nieuweWacht / 1000) + ' seconden.'
+      : 'Onjuiste pincode.';
+  };
+
+  knop.onclick = probeer;
+  pin.onkeydown = e => { if (e.key === 'Enter') probeer(); };
+
+  const vergeten = el('button', { className: 'back', textContent: 'Pincode vergeten?' });
+  vergeten.onclick = () => {
+    if (!confirm(
+      'Zonder je pincode kunnen je privénotities niet worden teruggehaald.\n\n' +
+      'Wil je de privéruimte leegmaken en een nieuwe pincode instellen? ' +
+      'Al je privénotities worden dan definitief verwijderd.'
+    )) return;
+    if (prompt('Typ WISSEN om te bevestigen.') !== 'WISSEN') return;
+    localStorage.removeItem(PRIVATE_KEY);
+    resetPogingen();
+    renderPrivate();
+  };
+
+  doos.append(
+    el('p', { textContent: 'Voer je pincode in om je privéruimte te openen.' }),
+    pin, knop, melding, vergeten
+  );
+  setTimeout(() => pin.focus(), 50);
+}
+
+function toonPrivateNotities(doos) {
+  const slot = el('button', { className: 'action', textContent: '🔒 Vergrendelen' });
+  slot.onclick = vergrendelEnToon;
+
+  const titel = el('input', { placeholder: 'Titel' });
+  const tekst = el('textarea', { placeholder: 'Schrijf hier iets privés...' });
+  const opslaan = el('button', { className: 'action', textContent: 'Privé bewaren' });
+
+  opslaan.onclick = async () => {
+    const t = titel.value.trim();
+    const b = tekst.value.trim();
+    if (!t && !b) { alert('Schrijf eerst iets.'); return; }
+
+    const nieuw = {
+      id: nieuwId(),
+      title: t || 'Zonder titel',
+      body: b,
+      date: new Date().toLocaleDateString('nl-NL')
+    };
+    if (await wijzigPrivate(lijst => [nieuw, ...lijst])) renderPrivate();
+  };
+
+  const lijst = el('div');
+  if (!privateNotities.length) {
+    lijst.append(el('p', { className: 'muted', textContent: 'Nog geen privénotities.' }));
+  }
+
+  privateNotities.forEach(note => {
+    const bewerken = el('button', { textContent: '✏️ Bewerken' });
+    bewerken.onclick = async () => {
+      const nieuweTitel = prompt('Nieuwe titel:', note.title);
+      if (nieuweTitel === null) return;
+      const nieuweTekst = prompt('Nieuwe tekst:', note.body || '');
+      if (nieuweTekst === null) return;
+      const ok = await wijzigPrivate(l => l.map(n => n.id === note.id
+        ? { ...n, title: nieuweTitel.trim() || 'Zonder titel', body: nieuweTekst }
+        : n));
+      if (ok) renderPrivate();
+    };
+
+    const verwijderen = el('button', { textContent: '🗑️ Verwijderen' });
+    verwijderen.onclick = async () => {
+      if (!confirm('Deze privénotitie definitief verwijderen?')) return;
+      if (await wijzigPrivate(l => l.filter(n => n.id !== note.id))) renderPrivate();
+    };
+
+    const inhoud = el('div', { textContent: note.body || '' });
+    inhoud.style.whiteSpace = 'pre-wrap';
+
+    lijst.append(el('div', { className: 'notitiekaart' },
+      el('h3', { textContent: note.title }),
+      el('p', { className: 'muted', textContent: note.date || '' }),
+      inhoud,
+      bewerken,
+      verwijderen
+    ));
+  });
+
+  doos.append(
+    el('p', { className: 'muted', textContent: 'Ontgrendeld. Vergrendelt automatisch na 2 minuten zonder activiteit.' }),
+    slot, titel, tekst, opslaan, lijst
+  );
+}
+
+// Elke aanraking of toetsaanslag in Private houdt hem langer open.
+['pointerdown', 'keydown'].forEach(soort => {
+  document.getElementById('private').addEventListener(soort, () => {
+    if (privateSleutel) startAutoSlot();
+  });
+});
+
+// Ga je naar een andere app of vergrendel je je telefoon, dan gaat Private op slot.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && privateSleutel) vergrendelEnToon();
+});
 
 /* ===================== Opstarten ===================== */
 // Vraag de browser om de opslag niet automatisch te wissen.
