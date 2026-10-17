@@ -127,6 +127,43 @@ textarea{min-height:140px;resize:vertical}
   overflow-wrap: anywhere;
 }
 
+.mediaknoppen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0 20px;
+}
+
+.mediaknoppen button {
+  flex: 1 1 180px;
+  min-height: 54px;
+  padding: 14px 18px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #3289ca, #1764b2);
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.privegalerij {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.privegalerij img,
+.privegalerij video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
 .notitiekaart button {
   border: 0;
   background: #eaf4ff;
@@ -232,7 +269,8 @@ textarea{min-height:140px;resize:vertical}
 const KEY = 'memoaris-demo-v2';
 const DB_NAAM = 'MemoarisMedia';
 // Versie 3 repareert databases die eerder zonder opslag 'fotos' zijn aangemaakt.
-const DB_VERSIE = 3;
+// Versie 4 voegt de versleutelde opslag 'privefotos' toe.
+const DB_VERSIE = 4;
 const DERTIG_DAGEN = 30 * 24 * 60 * 60 * 1000;
 
 function nieuwId() {
@@ -270,10 +308,31 @@ function openDB() {
       if (!db.objectStoreNames.contains('fotos')) {
         db.createObjectStore('fotos', { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains('privefotos')) {
+        db.createObjectStore('privefotos', { keyPath: 'id' });
+      }
     };
     verzoek.onsuccess = () => resolve(verzoek.result);
     verzoek.onerror = () => reject(verzoek.error);
   });
+}
+
+// Voert één handeling uit op een opslag en wacht tot die echt is opgeslagen.
+async function metStore(naam, modus, werk) {
+  const db = await openDB();
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(naam, modus);
+      let resultaat;
+      const verzoek = werk(tx.objectStore(naam));
+      if (verzoek) verzoek.onsuccess = () => { resultaat = verzoek.result; };
+      tx.oncomplete = () => resolve(resultaat);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
 }
 
 async function alleMedia() {
@@ -1110,6 +1169,13 @@ const AUTO_SLOT_MS = 2 * 60 * 1000;
 let privateSleutel = null; // bestaat alleen in het geheugen zolang Private open is
 let privateNotities = [];
 let privateTimer = null;
+let privateUrls = [];
+let privateKiestBestand = false; // fotokiezer of camera is open
+
+function ruimPrivateUrlsOp() {
+  privateUrls.forEach(url => URL.revokeObjectURL(url));
+  privateUrls = [];
+}
 
 function el(tag, props = {}, ...kinderen) {
   const element = document.createElement(tag);
@@ -1173,6 +1239,8 @@ async function bewaarPrivate() {
 }
 
 async function stelPinIn(pin) {
+  // Eventuele oude, onleesbare privéfoto's opruimen.
+  await metStore('privefotos', 'readwrite', s => s.clear());
   const salt = crypto.getRandomValues(new Uint8Array(16));
   privateSleutel = await maakSleutel(pin, salt, PBKDF2_RONDES);
   privateNotities = [];
@@ -1201,6 +1269,163 @@ function vergrendelPrivate() {
   privateSleutel = null;
   privateNotities = [];
   clearTimeout(privateTimer);
+  document.getElementById('priveViewer')?.remove();
+  ruimPrivateUrlsOp();
+}
+
+/* Privéfoto's: elk bestand wordt apart versleuteld in IndexedDB bewaard. */
+async function versleutelBestand(bestand) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv }, privateSleutel, await bestand.arrayBuffer());
+  return {
+    id: crypto.randomUUID(),
+    iv,
+    ct,
+    type: bestand.type,
+    datum: new Date().toISOString()
+  };
+}
+
+async function ontsleutelFoto(item, sleutel) {
+  const data = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: item.iv }, sleutel, item.ct);
+  return new Blob([data], { type: item.type });
+}
+
+function kiesPriveBestand(input) {
+  privateKiestBestand = true;
+  clearTimeout(privateTimer); // niet op slot gaan terwijl je een foto kiest
+  input.click();
+}
+
+async function voegPrivefotosToe(event) {
+  const bestanden = Array.from(event.target.files || []).filter(b =>
+    b.type.startsWith('image/') || b.type.startsWith('video/'));
+  event.target.value = '';
+  privateKiestBestand = false;
+
+  if (!privateSleutel) {
+    alert('Private is vergrendeld. Ontgrendel en probeer het opnieuw.');
+    renderPrivate();
+    return;
+  }
+  startAutoSlot();
+
+  let mislukt = 0;
+  for (const bestand of bestanden) {
+    try {
+      const item = await versleutelBestand(bestand);
+      await metStore('privefotos', 'readwrite', s => s.put(item));
+    } catch (fout) {
+      console.error(fout);
+      mislukt++;
+    }
+  }
+
+  if (mislukt) alert(mislukt + ' bestand(en) konden niet worden opgeslagen.');
+  renderPrivate();
+}
+
+async function laadPrivefotos(galerij) {
+  const sleutel = privateSleutel;
+
+  let items;
+  try {
+    items = await metStore('privefotos', 'readonly', s => s.getAll());
+  } catch (fout) {
+    console.error(fout);
+    galerij.textContent = 'Privéfoto’s laden is niet gelukt.';
+    return;
+  }
+
+  if (privateSleutel !== sleutel || !galerij.isConnected) return;
+  ruimPrivateUrlsOp();
+
+  if (!items.length) {
+    galerij.append(el('p', { className: 'muted', textContent: 'Nog geen privéfoto’s.' }));
+    return;
+  }
+
+  items.sort((a, b) => b.datum.localeCompare(a.datum));
+
+  for (const item of items) {
+    let blob;
+    try { blob = await ontsleutelFoto(item, sleutel); }
+    catch (fout) { console.error(fout); continue; }
+
+    // Intussen vergrendeld of scherm vernieuwd? Dan stoppen.
+    if (privateSleutel !== sleutel || !galerij.isConnected) return;
+
+    const url = URL.createObjectURL(blob);
+    privateUrls.push(url);
+
+    const isVideo = item.type.startsWith('video/');
+    const element = el(isVideo ? 'video' : 'img', { src: url });
+    if (isVideo) {
+      element.muted = true;
+      element.playsInline = true;
+      element.preload = 'metadata';
+    } else {
+      element.alt = 'Privéfoto';
+    }
+    element.onclick = () => openPriveViewer(item, url, isVideo);
+    galerij.append(element);
+  }
+}
+
+function openPriveViewer(item, url, isVideo) {
+  document.getElementById('priveViewer')?.remove();
+
+  const viewer = el('div', { id: 'priveViewer' });
+  viewer.style.cssText = `
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.95);
+    z-index:9999;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  `;
+
+  const groot = el(isVideo ? 'video' : 'img', { src: url });
+  groot.style.cssText = 'max-width:100%;max-height:80vh;object-fit:contain;';
+  if (isVideo) {
+    groot.controls = true;
+    groot.playsInline = true;
+    groot.onclick = e => e.stopPropagation();
+  }
+
+  const verwijder = el('button', { textContent: '🗑️ Definitief verwijderen' });
+  verwijder.style.cssText = `
+    position:absolute;
+    bottom:35px;
+    left:50%;
+    transform:translateX(-50%);
+    padding:12px 20px;
+    border:0;
+    border-radius:12px;
+    background:#e53935;
+    color:white;
+    font-size:16px;
+  `;
+  verwijder.onclick = async e => {
+    e.stopPropagation();
+    if (!confirm('Deze privéfoto definitief verwijderen? Dit kan niet ongedaan worden gemaakt.')) return;
+    try {
+      await metStore('privefotos', 'readwrite', s => s.delete(item.id));
+      viewer.remove();
+      renderPrivate();
+    } catch (fout) {
+      console.error(fout);
+      alert('Verwijderen is niet gelukt.');
+    }
+  };
+
+  viewer.addEventListener('pointerdown', () => { if (privateSleutel) startAutoSlot(); });
+  viewer.append(groot, verwijder);
+  viewer.onclick = () => viewer.remove();
+  document.body.append(viewer);
 }
 
 function vergrendelEnToon() {
@@ -1350,13 +1575,20 @@ function toonPinInvoer(doos) {
   pin.onkeydown = e => { if (e.key === 'Enter') probeer(); };
 
   const vergeten = el('button', { className: 'back', textContent: 'Pincode vergeten?' });
-  vergeten.onclick = () => {
+  vergeten.onclick = async () => {
     if (!confirm(
-      'Zonder je pincode kunnen je privénotities niet worden teruggehaald.\n\n' +
+      'Zonder je pincode kunnen je privénotities en privéfoto’s niet worden teruggehaald.\n\n' +
       'Wil je de privéruimte leegmaken en een nieuwe pincode instellen? ' +
-      'Al je privénotities worden dan definitief verwijderd.'
+      'Alles in Private wordt dan definitief verwijderd.'
     )) return;
     if (prompt('Typ WISSEN om te bevestigen.') !== 'WISSEN') return;
+    try {
+      await metStore('privefotos', 'readwrite', s => s.clear());
+    } catch (fout) {
+      console.error(fout);
+      alert('Wissen is niet gelukt.');
+      return;
+    }
     localStorage.removeItem(PRIVATE_KEY);
     resetPogingen();
     renderPrivate();
@@ -1427,10 +1659,32 @@ function toonPrivateNotities(doos) {
     ));
   });
 
+  // Privéfoto's
+  const galerijInput = el('input', { type: 'file', accept: 'image/*,video/*', multiple: true, hidden: true });
+  galerijInput.onchange = voegPrivefotosToe;
+
+  const cameraInput = el('input', { type: 'file', accept: 'image/*', hidden: true });
+  cameraInput.setAttribute('capture', 'environment');
+  cameraInput.onchange = voegPrivefotosToe;
+
+  const fotoKnop = el('button', { textContent: '🖼️ Foto’s toevoegen' });
+  fotoKnop.onclick = () => kiesPriveBestand(galerijInput);
+  const cameraKnop = el('button', { textContent: '📷 Camera' });
+  cameraKnop.onclick = () => kiesPriveBestand(cameraInput);
+
+  const galerij = el('div', { className: 'privegalerij' });
+
   doos.append(
     el('p', { className: 'muted', textContent: 'Ontgrendeld. Vergrendelt automatisch na 2 minuten zonder activiteit.' }),
-    slot, titel, tekst, opslaan, lijst
+    slot,
+    el('h3', { textContent: '🖼️ Privéfoto’s' }),
+    el('div', { className: 'mediaknoppen' }, fotoKnop, cameraKnop, galerijInput, cameraInput),
+    galerij,
+    el('h3', { textContent: '📝 Privénotities' }),
+    titel, tekst, opslaan, lijst
   );
+
+  laadPrivefotos(galerij);
 }
 
 // Elke aanraking of toetsaanslag in Private houdt hem langer open.
@@ -1441,8 +1695,20 @@ function toonPrivateNotities(doos) {
 });
 
 // Ga je naar een andere app of vergrendel je je telefoon, dan gaat Private op slot.
+// Uitzondering: tijdens het kiezen van een foto of het gebruik van de camera.
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && privateSleutel) vergrendelEnToon();
+  if (document.hidden && privateSleutel && !privateKiestBestand) vergrendelEnToon();
+});
+
+// Fotokiezer geannuleerd: de gewone beveiliging weer aanzetten.
+window.addEventListener('focus', () => {
+  if (!privateKiestBestand) return;
+  setTimeout(() => {
+    if (privateKiestBestand) {
+      privateKiestBestand = false;
+      if (privateSleutel) startAutoSlot();
+    }
+  }, 1500);
 });
 
 /* ===================== Opstarten ===================== */
