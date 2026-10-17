@@ -1,0 +1,2143 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Memoaris</title>
+<meta name="description" content="Bewaar de momenten die tellen.">
+<meta name="theme-color" content="#f3f7fd" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1621" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Memoaris">
+<style>
+/* ===================== Kleuren (licht en donker) ===================== */
+:root {
+  --bg: #f3f7fd;
+  --kaart: #ffffff;
+  --tekst: #24384d;
+  --zacht: #66778a;
+  --rand: #d3dfec;
+  --primair: #1f74bd;
+  --primair-zacht: #e6f1fc;
+  --primair-tekst: #1f6aab;
+  --gevaar: #c9342d;
+  --waarschuw-bg: #fff4e5;
+  --waarschuw-tekst: #8a4b00;
+  --kop-licht: #d9e9ff;
+  --slogan: #173f85;
+  --schaduw: 0 6px 18px rgba(36, 75, 112, 0.08);
+  --radius: 18px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1621;
+    --kaart: #17212d;
+    --tekst: #e4ebf3;
+    --zacht: #98a8ba;
+    --rand: #2a3848;
+    --primair: #2f80c8;
+    --primair-zacht: #1d3047;
+    --primair-tekst: #9ccaf4;
+    --gevaar: #d6453d;
+    --waarschuw-bg: #3a2a12;
+    --waarschuw-tekst: #f3c98b;
+    --kop-licht: #173052;
+    --slogan: #a9cdfa;
+    --schaduw: 0 6px 18px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+}
+
+/* ===================== Basis ===================== */
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--tekst);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  line-height: 1.45;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+body.geen-scroll { overflow: hidden; }
+button { font: inherit; color: inherit; cursor: pointer; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--primair); outline-offset: 2px; }
+
+header {
+  background: radial-gradient(ellipse at top left, var(--kop-licht) 0%, var(--bg) 65%);
+  padding: calc(24px + env(safe-area-inset-top)) 20px 16px;
+  text-align: center;
+  border-radius: 0 0 28px 28px;
+}
+/* Twee versies van het logo: donkerblauwe tekst voor licht, lichte tekst voor de donkere modus. */
+.logo { display: block; width: 100%; max-width: 320px; height: auto; margin: 8px auto 12px; }
+
+/* Labeltje met de map waar een notitie bij hoort */
+.map-label {
+  display: inline-block; margin: 0 0 6px; padding: 3px 10px;
+  border-radius: 999px; background: var(--primair-zacht); color: var(--primair-tekst);
+  font-size: 13px; font-weight: 600;
+}
+.merknaam { font-size: 34px; margin: 12px 0; }
+.slogan { color: var(--slogan); font-size: 19px; font-weight: 700; letter-spacing: 0.3px; margin: 12px 0; }
+
+main { padding: 24px 20px 48px; max-width: 650px; margin: auto; }
+h2 { font-size: 24px; margin: 8px 0 16px; }
+h3 { margin: 0 0 6px; font-size: 18px; }
+.muted { color: var(--zacht); font-size: 14px; }
+
+/* ===================== Kaarten en knoppen ===================== */
+.card {
+  display: flex; align-items: center; gap: 18px;
+  width: 100%; margin-bottom: 16px; padding: 23px;
+  background: var(--kaart); border: 0; border-radius: 22px;
+  box-shadow: var(--schaduw); text-align: left;
+}
+.card .symbol { font-size: 31px; }
+.card h2 { margin: 0 0 5px; font-size: 20px; }
+.card p { margin: 0; color: var(--zacht); font-size: 14px; }
+
+.knop {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 46px; padding: 12px 18px; margin: 5px 6px 10px 0;
+  border: 0; border-radius: 14px;
+  background: var(--primair); color: #fff; font-weight: 600;
+}
+.knop.zacht { background: var(--primair-zacht); color: var(--primair-tekst); }
+.knop.gevaar { background: var(--gevaar); color: #fff; }
+.knop.klein { min-height: 38px; padding: 8px 12px; font-size: 14px; margin: 10px 8px 0 0; }
+.knop:disabled { opacity: 0.55; cursor: default; }
+.card:active, .knop:active, .tegel:active { transform: scale(0.98); }
+
+.knoppenrij { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.knoppenrij .knop { flex: 1 1 160px; min-height: 54px; margin: 0; }
+
+.back { background: transparent; color: var(--primair-tekst); border: 0; padding: 12px 0; font-weight: 600; }
+
+input, textarea {
+  width: 100%; padding: 14px; margin: 8px 0 14px;
+  border: 1px solid var(--rand); border-radius: 12px;
+  font: inherit; background: var(--kaart); color: var(--tekst);
+}
+input:focus, textarea:focus { outline: 2px solid var(--primair); outline-offset: 1px; border-color: transparent; }
+textarea { min-height: 140px; resize: vertical; }
+
+.kaart {
+  background: var(--kaart); border-radius: var(--radius);
+  padding: 18px; margin: 12px 0;
+  box-shadow: var(--schaduw); overflow-wrap: anywhere;
+}
+.kaart .tekst { white-space: pre-wrap; margin-top: 6px; }
+.leeg { text-align: center; color: var(--zacht); padding: 24px 12px; }
+.waarschuwing { background: var(--waarschuw-bg); color: var(--waarschuw-tekst); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+.blok { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--rand); }
+
+/* ===================== Mappen ===================== */
+.map {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 84px; padding: 12px; margin-bottom: 12px;
+  border-radius: var(--radius); background: var(--kaart); box-shadow: var(--schaduw);
+}
+.map-naam {
+  flex: 1; min-width: 0; align-self: stretch;
+  padding: 12px; border: 0; border-radius: 12px; background: none;
+  text-align: left; font-weight: 600; font-size: 16px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.map-naam.met-omslag {
+  display: flex; align-items: flex-end; min-height: 110px;
+  background-size: cover; background-position: center;
+  color: #fff; text-shadow: 0 1px 5px rgba(0, 0, 0, 0.8);
+}
+.icoonknop {
+  flex-shrink: 0; width: 42px; height: 42px;
+  border: 0; border-radius: 12px;
+  background: var(--primair-zacht); color: var(--primair-tekst); font-size: 17px;
+}
+
+/* ===================== Fotoraster ===================== */
+.raster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 16px 0 24px; }
+.tegel {
+  position: relative; padding: 0; border: 0; border-radius: 14px;
+  overflow: hidden; aspect-ratio: 1 / 1; background: var(--primair-zacht);
+}
+.tegel img, .tegel video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tegel.video::after {
+  content: "▶"; position: absolute; right: 8px; bottom: 6px;
+  color: #fff; font-size: 14px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+/* ===================== Fotoviewer ===================== */
+.viewer {
+  position: fixed; inset: 0; z-index: 9000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: calc(60px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.95); color: #fff;
+}
+.viewer-sluit {
+  position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px;
+  width: 44px; height: 44px; border: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15); color: #fff; font-size: 20px;
+}
+.viewer-media { max-width: 100%; max-height: 60vh; object-fit: contain; border-radius: 8px; }
+.viewer-info { width: 100%; max-width: 600px; margin-top: 14px; text-align: center; }
+.viewer-datum { margin: 0; color: #b9c4d0; font-size: 14px; }
+.viewer-bijschrift { margin: 6px 0 0; font-size: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.viewer-acties { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
+.viewer-acties .knop { margin: 0; }
+.viewer .knop.zacht { background: rgba(255, 255, 255, 0.14); color: #fff; }
+
+/* ===================== Pop-ups ===================== */
+.dialoog-achtergrond {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 16px; background: rgba(10, 20, 30, 0.5);
+  animation: vervagen 0.15s ease-out;
+}
+@media (min-width: 600px) { .dialoog-achtergrond { align-items: center; } }
+.dialoog {
+  width: 100%; max-width: 440px; max-height: 85vh; overflow: auto;
+  margin-bottom: env(safe-area-inset-bottom); padding: 22px;
+  background: var(--kaart); color: var(--tekst);
+  border-radius: 22px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  animation: omhoog 0.2s ease-out;
+}
+.dialoog h3 { font-size: 20px; margin-bottom: 8px; }
+.dialoog p { margin: 0 0 14px; white-space: pre-line; }
+.dialoog textarea { min-height: 110px; }
+.dialoog-knoppen { display: flex; gap: 10px; margin-top: 6px; }
+.dialoog-knoppen .knop { flex: 1; margin: 0; }
+.keuzelijst { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 14px; }
+.keuzelijst button {
+  padding: 14px; border: 1px solid var(--rand); border-radius: 12px;
+  background: var(--bg); text-align: left; font-weight: 500;
+}
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 11000;
+  transform: translateX(-50%); max-width: calc(100% - 32px);
+  padding: 12px 18px; border-radius: 14px;
+  background: #24384d; color: #fff; font-size: 15px; text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  animation: omhoog 0.2s ease-out;
+}
+
+@keyframes vervagen { from { opacity: 0; } }
+@keyframes omhoog { from { transform: translate(var(--tx, 0), 20px); opacity: 0; } }
+.toast { --tx: -50%; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ===================== Welkomstscherm ===================== */
+.welkom {
+  position: fixed; inset: 0; z-index: 9500;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: var(--bg);
+}
+.welkom-doos { width: 100%; max-width: 420px; text-align: center; }
+.welkom-symbool { font-size: 64px; margin-bottom: 8px; }
+.welkom h2 { font-size: 26px; margin: 0 0 10px; }
+.welkom p { color: var(--zacht); font-size: 17px; margin: 0 0 24px; }
+.stippen { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
+.stippen span { width: 8px; height: 8px; border-radius: 4px; background: var(--rand); }
+.stippen span.actief { width: 22px; background: var(--primair); }
+.welkom .knop { width: 100%; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<header>
+  <picture>
+    <source srcset="logo-donker.png" media="(prefers-color-scheme: dark)">
+    <img class="logo" src="logo-licht.png" alt="Memoaris" width="800" height="165"
+         onerror="this.hidden=true;document.getElementById('merknaam').hidden=false;">
+  </picture>
+  <h1 class="merknaam" id="merknaam" hidden>Memoaris</h1>
+  <p class="slogan">Bewaar de momenten die tellen.</p>
+</header>
+
+<main>
+<section id="home">
+  <button class="card" onclick="show('albums')">
+    <span class="symbol">🖼️</span>
+    <span><h2>Mijn Memoaris</h2><p>Foto's, video's en herinneringen</p></span>
+  </button>
+  <button class="card" onclick="show('notes')">
+    <span class="symbol">📝</span>
+    <span><h2>Notes</h2><p>Schrijf jouw persoonlijke verhalen</p></span>
+  </button>
+  <button class="card" onclick="show('private')">
+    <span class="symbol">🔒</span>
+    <span><h2>Private</h2><p>Jouw persoonlijke privéruimte</p></span>
+  </button>
+  <button class="card" onclick="show('prullenbak')">
+    <span class="symbol">🗑️</span>
+    <span><h2>Prullenbak</h2><p>Bekijk en herstel verwijderde herinneringen.</p></span>
+  </button>
+</section>
+
+<section id="albums" hidden>
+  <button class="back" onclick="goBack()">← Terug</button>
+  <h2 id="folderTitle">📁 Mijn Memoaris</h2>
+  <button class="knop" onclick="newFolder()">+ Nieuwe map</button>
+  <div id="folderList"></div>
+
+  <div class="knoppenrij">
+    <button class="knop" onclick="document.getElementById('galleryInput').click()">🖼️ Foto's en video's toevoegen</button>
+    <button class="knop" onclick="document.getElementById('cameraInput').click()">📷 Camera openen</button>
+  </div>
+  <input id="galleryInput" type="file" accept="image/*,video/*" multiple hidden>
+  <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden>
+
+  <div id="mediaPreview" class="raster"></div>
+  <p id="leegAlbum" class="leeg" hidden>Nog niets hier. Maak een map of voeg foto's toe.</p>
+
+  <div id="verhalenBlok" class="blok" hidden>
+    <h3>📝 Verhalen bij deze map</h3>
+    <div id="verhalenLijst"></div>
+    <button class="knop zacht" onclick="nieuwVerhaalInMap()">+ Verhaal schrijven</button>
+  </div>
+
+  <div id="backupBlok" class="blok">
+    <h3>💾 Back-up</h3>
+    <p class="muted">Alles staat alleen op dit toestel. Maak regelmatig een back-up, zodat je niets kwijtraakt als je telefoon stuk of zoek raakt.</p>
+    <button class="knop zacht" onclick="maakBackup()">📥 Back-up maken</button>
+    <button class="knop zacht" onclick="document.getElementById('herstelBackupInput').click()">📤 Back-up herstellen</button>
+    <input id="herstelBackupInput" type="file" accept=".json,application/json" hidden
+           onchange="herstelBackupVeilig(this.files[0]); this.value='';">
+  </div>
+</section>
+
+<section id="notes" hidden>
+  <button class="back" onclick="show('home')">← Terug</button>
+  <h2>📝 Mijn Notes</h2>
+  <input id="noteTitle" placeholder="Titel van je notitie">
+  <textarea id="noteText" placeholder="Schrijf hier je herinnering..."></textarea>
+  <button class="knop" onclick="saveNote()">Notitie bewaren</button>
+  <div id="noteList"></div>
+</section>
+
+<section id="private" hidden>
+  <button class="back" onclick="privateTerug()">← Terug</button>
+  <h2 id="privateTitel">🔒 Private</h2>
+  <div id="privateInhoud"></div>
+</section>
+
+<section id="prullenbak" hidden>
+  <button class="back" onclick="show('home')">← Terug</button>
+  <h2>🗑️ Prullenbak</h2>
+  <p class="muted">
+    Verwijderde herinneringen blijven 30 dagen in de prullenbak en worden daarna automatisch gewist.
+    In de eerste 7 dagen kun je ze terugzetten.
+    Met Premium, binnenkort beschikbaar, kan dat de volle 30 dagen.
+  </p>
+  <div id="prullenbakLijst"></div>
+</section>
+</main>
+
+<script>
+/* ===================== Instellingen ===================== */
+const KEY = 'memoaris-demo-v2';
+const WELKOM_KEY = 'memoaris-welkom-gezien';
+const DB_NAAM = 'MemoarisMedia';
+// Versie 3 repareert databases die zonder opslag 'fotos' zijn aangemaakt.
+// Versie 4 voegt de versleutelde opslag 'privefotos' toe.
+const DB_VERSIE = 4;
+const DERTIG_DAGEN = 30 * 24 * 60 * 60 * 1000;
+const MAX_BACKUP = 20 * 1024 * 1024;
+
+function nieuwId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function el(tag, props = {}, ...kinderen) {
+  const element = document.createElement(tag);
+  Object.assign(element, props);
+  element.append(...kinderen);
+  return element;
+}
+
+function formatDatum(iso) {
+  const datum = new Date(iso);
+  if (isNaN(datum)) return '';
+  return datum.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/* ===================== Pop-ups en meldingen ===================== */
+const openDialogen = new Set();
+
+// Algemene pop-up. Geeft een Promise met de gekozen waarde (null = geannuleerd).
+function toonDialoog({ titel = '', tekst = '', velden = [], keuzes = null, knoppen = [] }) {
+  return new Promise(resolve => {
+    const vorigeFocus = document.activeElement;
+    const achtergrond = el('div', { className: 'dialoog-achtergrond' });
+    const doos = el('div', { className: 'dialoog' });
+    doos.setAttribute('role', 'dialog');
+    doos.setAttribute('aria-modal', 'true');
+
+    if (titel) doos.append(el('h3', { textContent: titel }));
+    if (tekst) doos.append(el('p', { textContent: tekst }));
+
+    const invoer = velden.map(veld => el(veld.meerregelig ? 'textarea' : 'input', {
+      value: veld.waarde || '',
+      placeholder: veld.placeholder || ''
+    }));
+    doos.append(...invoer);
+
+    const waarden = () => invoer.length === 1 ? invoer[0].value : invoer.map(i => i.value);
+
+    function sluit(waarde) {
+      if (!openDialogen.has(sluit)) return;
+      openDialogen.delete(sluit);
+      document.removeEventListener('keydown', toets);
+      achtergrond.remove();
+      if (vorigeFocus && vorigeFocus.focus) vorigeFocus.focus();
+      resolve(waarde);
+    }
+
+    function toets(e) {
+      if (e.key === 'Escape') { e.stopPropagation(); sluit(null); }
+      if (e.key === 'Enter' && e.target.tagName === 'INPUT' && invoer.includes(e.target)) {
+        e.preventDefault();
+        sluit(waarden());
+      }
+    }
+
+    if (keuzes) {
+      const lijst = el('div', { className: 'keuzelijst' });
+      keuzes.forEach(keuze => lijst.append(
+        el('button', { textContent: keuze.label, onclick: () => sluit(keuze.waarde) })
+      ));
+      doos.append(lijst);
+    }
+
+    const rij = el('div', { className: 'dialoog-knoppen' });
+    knoppen.forEach(knop => rij.append(el('button', {
+      className: 'knop ' + (knop.soort || ''),
+      textContent: knop.label,
+      onclick: () => sluit(knop.waarde === 'invoer' ? waarden() : knop.waarde)
+    })));
+    doos.append(rij);
+
+    achtergrond.append(doos);
+    achtergrond.onclick = e => { if (e.target === achtergrond) sluit(null); };
+    openDialogen.add(sluit);
+    document.addEventListener('keydown', toets);
+    document.body.append(achtergrond);
+
+    setTimeout(() => (invoer[0] || rij.lastChild)?.focus(), 60);
+  });
+}
+
+function sluitAlleDialogen() {
+  [...openDialogen].forEach(sluit => sluit(null));
+}
+
+function meld(tekst, titel = '') {
+  return toonDialoog({ titel, tekst, knoppen: [{ label: 'Oké', waarde: true }] });
+}
+
+async function bevestig(tekst, { titel = '', ok = 'Doorgaan', gevaar = false } = {}) {
+  const antwoord = await toonDialoog({
+    titel, tekst,
+    knoppen: [
+      { label: 'Annuleren', waarde: false, soort: 'zacht' },
+      { label: ok, waarde: true, soort: gevaar ? 'gevaar' : '' }
+    ]
+  });
+  return antwoord === true;
+}
+
+function vraagTekst(titel, { waarde = '', placeholder = '', meerregelig = false, ok = 'Opslaan', tekst = '' } = {}) {
+  return toonDialoog({
+    titel, tekst,
+    velden: [{ waarde, placeholder, meerregelig }],
+    knoppen: [
+      { label: 'Annuleren', waarde: null, soort: 'zacht' },
+      { label: ok, waarde: 'invoer' }
+    ]
+  });
+}
+
+function kiesUit(titel, keuzes) {
+  return toonDialoog({ titel, keuzes, knoppen: [{ label: 'Annuleren', waarde: null, soort: 'zacht' }] });
+}
+
+// Titel en tekst van een notitie bewerken. Geeft { title, body } of null.
+async function bewerkNotitieDialoog(note, titel = 'Notitie bewerken') {
+  const antwoord = await toonDialoog({
+    titel,
+    velden: [
+      { waarde: note.title, placeholder: 'Titel' },
+      { waarde: note.body || '', placeholder: 'Tekst', meerregelig: true }
+    ],
+    knoppen: [
+      { label: 'Annuleren', waarde: null, soort: 'zacht' },
+      { label: 'Opslaan', waarde: 'invoer' }
+    ]
+  });
+  if (!antwoord) return null;
+  if (!antwoord[0].trim() && !antwoord[1].trim()) return null;
+  return { title: antwoord[0].trim() || 'Zonder titel', body: antwoord[1] };
+}
+
+let toastTimer = null;
+function toast(tekst) {
+  document.querySelector('.toast')?.remove();
+  clearTimeout(toastTimer);
+  const melding = el('div', { className: 'toast', textContent: tekst });
+  melding.setAttribute('role', 'status');
+  document.body.append(melding);
+  toastTimer = setTimeout(() => melding.remove(), 2600);
+}
+
+/* ===================== Mappen en notities (localStorage) ===================== */
+let data = { folders: [], notes: [] };
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY));
+  if (saved && Array.isArray(saved.folders) && Array.isArray(saved.notes)) data = saved;
+} catch (e) {}
+
+// Oude notities zonder id krijgen er alsnog een.
+let notitiesGemigreerd = false;
+data.notes.forEach(note => {
+  if (!note.id) { note.id = nieuwId(); notitiesGemigreerd = true; }
+});
+if (notitiesGemigreerd) persist();
+
+let path = [];
+
+function persist() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(data));
+    return true;
+  } catch (e) {
+    meld('Opslaan is niet gelukt. Misschien is de opslag van je telefoon vol.');
+    return false;
+  }
+}
+
+/* ===================== Database (IndexedDB) ===================== */
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const verzoek = indexedDB.open(DB_NAAM, DB_VERSIE);
+    verzoek.onupgradeneeded = () => {
+      const db = verzoek.result;
+      if (!db.objectStoreNames.contains('fotos')) {
+        db.createObjectStore('fotos', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('privefotos')) {
+        db.createObjectStore('privefotos', { keyPath: 'id' });
+      }
+    };
+    verzoek.onsuccess = () => resolve(verzoek.result);
+    verzoek.onerror = () => reject(verzoek.error);
+  });
+}
+
+// Voert één handeling uit op een opslag en wacht tot die echt is opgeslagen.
+async function metStore(naam, modus, werk) {
+  const db = await openDB();
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(naam, modus);
+      let resultaat;
+      const verzoek = werk(tx.objectStore(naam));
+      if (verzoek) verzoek.onsuccess = () => { resultaat = verzoek.result; };
+      tx.oncomplete = () => resolve(resultaat);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+const alleMedia = () => metStore('fotos', 'readonly', s => s.getAll());
+const slaMediaItemOp = item => metStore('fotos', 'readwrite', s => s.put(item));
+
+async function verwijderMediaDefinitief(ids) {
+  if (!ids.length) return;
+  await metStore('fotos', 'readwrite', s => { ids.forEach(id => s.delete(id)); });
+}
+
+// Verwijdert herinneringen die langer dan 30 dagen in de prullenbak liggen.
+async function ruimPrullenbakOp() {
+  const media = await alleMedia();
+  const verlopen = media
+    .filter(foto => typeof foto.verwijderdOp === 'number' && Date.now() - foto.verwijderdOp >= DERTIG_DAGEN)
+    .map(foto => foto.id);
+  await verwijderMediaDefinitief(verlopen);
+  return verlopen.length;
+}
+
+/* ===================== Geheugenbeheer voor foto-URL's ===================== */
+let actieveUrls = [];
+function maakUrl(blob) {
+  const url = URL.createObjectURL(blob);
+  actieveUrls.push(url);
+  return url;
+}
+function ruimUrlsOp() {
+  actieveUrls.forEach(url => URL.revokeObjectURL(url));
+  actieveUrls = [];
+}
+
+/* ===================== Navigatie ===================== */
+function show(page) {
+  // Wie de privéruimte verlaat, vergrendelt hem meteen.
+  if (page !== 'private') vergrendelPrivate();
+  sluitViewer();
+
+  document.querySelectorAll('main section').forEach(s => s.hidden = true);
+  document.getElementById(page).hidden = false;
+  if (page === 'albums') renderFolders();
+  if (page === 'notes') renderNotes();
+  if (page === 'private') renderPrivate();
+  if (page === 'prullenbak') laadPrullenbak();
+  window.scrollTo(0, 0);
+}
+
+function goBack() {
+  if (path.length) { path.pop(); renderFolders(); window.scrollTo(0, 0); }
+  else show('home');
+}
+
+/* ===================== Fotoviewer ===================== */
+function openViewer({ url, isVideo, datum, bijschrift, acties }) {
+  sluitViewer();
+
+  const viewer = el('div', { className: 'viewer', id: 'viewer' });
+  viewer.setAttribute('role', 'dialog');
+  viewer.setAttribute('aria-modal', 'true');
+
+  const sluiten = el('button', { className: 'viewer-sluit', textContent: '✕', onclick: sluitViewer });
+  sluiten.setAttribute('aria-label', 'Sluiten');
+
+  const media = el(isVideo ? 'video' : 'img', { className: 'viewer-media', src: url });
+  if (isVideo) {
+    media.controls = true;
+    media.playsInline = true;
+  } else {
+    media.alt = bijschrift || 'Foto';
+  }
+
+  const datumRegel = el('p', { className: 'viewer-datum', textContent: datum ? 'Toegevoegd op ' + formatDatum(datum) : '' });
+  const bijschriftRegel = el('p', { className: 'viewer-bijschrift' });
+  const zetBijschrift = tekst => {
+    bijschriftRegel.textContent = tekst || '';
+    bijschriftRegel.hidden = !tekst;
+  };
+  zetBijschrift(bijschrift);
+
+  const balk = el('div', { className: 'viewer-acties' });
+  acties.forEach(actie => balk.append(el('button', {
+    className: 'knop ' + (actie.soort || 'zacht'),
+    textContent: actie.label,
+    onclick: () => actie.onclick({ zetBijschrift })
+  })));
+
+  viewer.append(sluiten, media, el('div', { className: 'viewer-info' }, datumRegel, bijschriftRegel), balk);
+  document.body.append(viewer);
+  document.body.classList.add('geen-scroll');
+}
+
+function sluitViewer() {
+  const viewer = document.getElementById('viewer');
+  if (!viewer) return;
+  viewer.querySelector('video')?.pause();
+  viewer.remove();
+  document.body.classList.remove('geen-scroll');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !openDialogen.size) sluitViewer();
+});
+
+function openFotoViewer(foto, url) {
+  const isVideo = foto.bestand.type.startsWith('video/');
+
+  openViewer({
+    url, isVideo,
+    datum: foto.datum,
+    bijschrift: foto.bijschrift,
+    acties: [
+      {
+        label: '✏️ Bijschrift',
+        onclick: async ({ zetBijschrift }) => {
+          const tekst = await vraagTekst('Bijschrift', {
+            waarde: foto.bijschrift || '',
+            placeholder: 'Waar gaat deze herinnering over?',
+            meerregelig: true
+          });
+          if (tekst === null) return;
+          const nieuw = tekst.trim();
+          try {
+            await slaMediaItemOp({ ...foto, bijschrift: nieuw });
+            foto.bijschrift = nieuw;
+            zetBijschrift(nieuw);
+            toast('Bijschrift opgeslagen');
+          } catch (fout) {
+            console.error(fout);
+            meld('Het bijschrift kon niet worden opgeslagen.');
+          }
+        }
+      },
+      {
+        label: '📁 Verplaatsen',
+        onclick: async () => {
+          const opties = [{ id: 'home', naam: 'Mijn Memoaris (hoofdmap)' }, ...alleMappen()]
+            .filter(map => map.id !== foto.folderId);
+          if (!opties.length) {
+            meld('Maak eerst een map aan om deze herinnering naartoe te verplaatsen.');
+            return;
+          }
+          const doel = await kiesUit('Verplaatsen naar…', opties.map(map => ({ label: '📁 ' + map.naam, waarde: map })));
+          if (!doel) return;
+          try {
+            await slaMediaItemOp({ ...foto, folderId: doel.id });
+            sluitViewer();
+            laadFotos();
+            toast('Verplaatst naar ' + doel.naam);
+          } catch (fout) {
+            console.error(fout);
+            meld('Verplaatsen is niet gelukt.');
+          }
+        }
+      },
+      {
+        label: '🗑️ Verwijderen',
+        soort: 'gevaar',
+        onclick: async () => {
+          const ok = await bevestig('Hij gaat naar de prullenbak, waar je hem nog kunt terughalen.', {
+            titel: 'Herinnering verwijderen?', ok: 'Verwijderen', gevaar: true
+          });
+          if (!ok) return;
+          try {
+            await slaMediaItemOp({ ...foto, verwijderdOp: Date.now() });
+            sluitViewer();
+            laadFotos();
+            toast('Naar de prullenbak verplaatst');
+          } catch (fout) {
+            console.error(fout);
+            meld('Verwijderen is niet gelukt.');
+          }
+        }
+      }
+    ]
+  });
+}
+
+/* ===================== Prullenbak ===================== */
+async function laadPrullenbak() {
+  const lijst = document.getElementById('prullenbakLijst');
+
+  let media;
+  try {
+    await ruimPrullenbakOp();
+    media = await alleMedia();
+  } catch (fout) {
+    console.error(fout);
+    lijst.textContent = 'De prullenbak kon niet worden geladen.';
+    return;
+  }
+
+  lijst.replaceChildren();
+  ruimUrlsOp();
+
+  const verwijderd = media
+    .filter(foto => foto.verwijderdOp)
+    .sort((a, b) => b.verwijderdOp - a.verwijderdOp);
+
+  if (!verwijderd.length) {
+    lijst.append(el('p', { className: 'leeg', textContent: 'Je prullenbak is leeg.' }));
+    return;
+  }
+
+  verwijderd.forEach(foto => {
+    const dagen = Math.floor((Date.now() - foto.verwijderdOp) / 86400000);
+    const kanHerstellen = dagen >= 0 && dagen < 7;
+    const kaart = el('div', { className: 'kaart' });
+
+    if (kanHerstellen && foto.bestand) {
+      const isVideo = foto.bestand.type.startsWith('video/');
+      const tegel = el('div', { className: 'tegel' + (isVideo ? ' video' : '') });
+      tegel.style.width = '110px';
+      const miniatuur = el(isVideo ? 'video' : 'img', { src: maakUrl(foto.bestand) });
+      if (isVideo) {
+        miniatuur.muted = true;
+        miniatuur.playsInline = true;
+        miniatuur.preload = 'metadata';
+      } else {
+        miniatuur.alt = '';
+      }
+      tegel.append(miniatuur);
+      kaart.append(tegel);
+    }
+
+    kaart.append(el('p', {
+      textContent: kanHerstellen
+        ? '🗑️ Nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard'
+        : '🔒 Nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard. Terugzetten na 7 dagen kan straks met Premium.'
+    }));
+
+    if (kanHerstellen) {
+      const herstelKnop = el('button', { className: 'knop klein', textContent: '♻️ Herstellen' });
+      herstelKnop.onclick = async () => {
+        herstelKnop.disabled = true;
+        try {
+          const hersteld = { ...foto };
+          delete hersteld.verwijderdOp;
+          await slaMediaItemOp(hersteld);
+          toast('Herinnering hersteld');
+          laadPrullenbak();
+        } catch (fout) {
+          console.error(fout);
+          herstelKnop.disabled = false;
+          meld('Herstellen is niet gelukt.');
+        }
+      };
+      kaart.append(herstelKnop);
+    }
+
+    const definitief = el('button', { className: 'knop klein zacht', textContent: 'Definitief verwijderen' });
+    definitief.onclick = async () => {
+      const ok = await bevestig('Dit kan niet ongedaan worden gemaakt.', {
+        titel: 'Definitief verwijderen?', ok: 'Verwijderen', gevaar: true
+      });
+      if (!ok) return;
+      try {
+        await verwijderMediaDefinitief([foto.id]);
+        toast('Definitief verwijderd');
+        laadPrullenbak();
+      } catch (fout) {
+        console.error(fout);
+        meld('Verwijderen is niet gelukt.');
+      }
+    };
+    kaart.append(definitief);
+
+    lijst.append(kaart);
+  });
+}
+
+/* ===================== Mappen ===================== */
+function currentFolders() {
+  let folders = data.folders;
+  for (const id of path) {
+    const found = folders.find(f => f.id === id);
+    if (!found) { path = []; return data.folders; }
+    folders = found.children;
+  }
+  return folders;
+}
+
+function currentFolderName() {
+  let folders = data.folders, name = '';
+  for (const id of path) {
+    const folder = folders.find(f => f.id === id);
+    if (!folder) break;
+    name = folder.name;
+    folders = folder.children;
+  }
+  return name;
+}
+
+function alleMappen(folders = data.folders, prefix = '') {
+  const lijst = [];
+  for (const folder of folders) {
+    const naam = prefix + folder.name;
+    lijst.push({ id: folder.id, naam });
+    if (folder.children) lijst.push(...alleMappen(folder.children, naam + ' / '));
+  }
+  return lijst;
+}
+
+// Maakt een kleine versie van een foto, zodat omslagen weinig ruimte innemen.
+function verkleinAfbeelding(bestand, max = 600) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(bestand);
+    const afbeelding = new Image();
+    afbeelding.onload = () => {
+      const schaal = Math.min(1, max / Math.max(afbeelding.width, afbeelding.height));
+      const canvas = el('canvas', {
+        width: Math.round(afbeelding.width * schaal),
+        height: Math.round(afbeelding.height * schaal)
+      });
+      canvas.getContext('2d').drawImage(afbeelding, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+    afbeelding.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Afbeelding niet leesbaar')); };
+    afbeelding.src = url;
+  });
+}
+
+function icoonKnop(symbool, label, onclick) {
+  const knop = el('button', { className: 'icoonknop', textContent: symbool, onclick, title: label });
+  knop.setAttribute('aria-label', label);
+  return knop;
+}
+
+function renderFolders() {
+  const list = document.getElementById('folderList');
+  list.replaceChildren();
+  document.getElementById('folderTitle').textContent =
+    path.length ? '📁 ' + (currentFolderName() || 'Map') : '📁 Mijn Memoaris';
+  document.getElementById('backupBlok').hidden = path.length > 0;
+
+  currentFolders().forEach(folder => {
+    const open = el('button', {
+      className: 'map-naam',
+      textContent: '📁 ' + folder.name,
+      onclick: () => { path.push(folder.id); renderFolders(); window.scrollTo(0, 0); }
+    });
+    if (folder.cover) {
+      open.classList.add('met-omslag');
+      open.style.backgroundImage = `url("${folder.cover}")`;
+    }
+
+    const hernoem = icoonKnop('✏️', 'Map hernoemen', async () => {
+      const naam = await vraagTekst('Map hernoemen', { waarde: folder.name });
+      if (naam && naam.trim()) {
+        folder.name = naam.trim();
+        persist();
+        renderFolders();
+      }
+    });
+
+    const omslag = icoonKnop('🖼️', 'Omslagfoto kiezen', () => {
+      const input = el('input', { type: 'file', accept: 'image/*' });
+      input.onchange = async () => {
+        const bestand = input.files[0];
+        if (!bestand) return;
+        try {
+          folder.cover = await verkleinAfbeelding(bestand);
+          if (persist()) toast('Omslagfoto ingesteld');
+          renderFolders();
+        } catch (fout) {
+          console.error(fout);
+          meld('Deze foto kan niet als omslag worden gebruikt.');
+        }
+      };
+      input.click();
+    });
+
+    const verwijder = icoonKnop('🗑️', 'Map verwijderen', async () => {
+      if (folder.children?.length > 0) {
+        meld('Deze map bevat submappen. Verwijder die eerst.');
+        return;
+      }
+
+      let media;
+      try {
+        media = await alleMedia();
+      } catch (fout) {
+        console.error(fout);
+        meld('Controle mislukt. De map is niet verwijderd.');
+        return;
+      }
+
+      if (media.some(foto => foto.folderId === folder.id)) {
+        meld('Deze map bevat foto’s of video’s (ook in de prullenbak). Verplaats of verwijder die eerst.');
+        return;
+      }
+
+      const gekoppeld = data.notes.filter(note => note.folderId === folder.id);
+      const ok = await bevestig(
+        'De map "' + folder.name + '" bevat geen foto’s en wordt verwijderd.' +
+        (gekoppeld.length === 1 ? '\n\nHet verhaal bij deze map blijft gewoon bewaard in Notes.' : '') +
+        (gekoppeld.length > 1 ? '\n\nDe ' + gekoppeld.length + ' verhalen bij deze map blijven gewoon bewaard in Notes.' : ''),
+        { titel: 'Map verwijderen?', ok: 'Verwijderen', gevaar: true }
+      );
+      if (!ok) return;
+
+      const mappen = currentFolders();
+      const index = mappen.findIndex(map => map.id === folder.id);
+      if (index === -1) return;
+      mappen.splice(index, 1);
+      gekoppeld.forEach(note => { delete note.folderId; });
+      persist();
+      renderFolders();
+      toast('Map verwijderd');
+    });
+
+    list.append(el('div', { className: 'map' }, open, hernoem, omslag, verwijder));
+  });
+
+  renderVerhalen();
+  laadFotos();
+}
+
+async function newFolder() {
+  const naam = await vraagTekst('Nieuwe map', { placeholder: 'Bijvoorbeeld: Zomer 2026', ok: 'Aanmaken' });
+  if (!naam || !naam.trim()) return;
+  currentFolders().push({ id: nieuwId(), name: naam.trim(), children: [] });
+  persist();
+  renderFolders();
+}
+
+/* ===================== Notities ===================== */
+function saveNote() {
+  const title = document.getElementById('noteTitle').value.trim();
+  const body = document.getElementById('noteText').value.trim();
+  if (!title && !body) { meld('Schrijf eerst iets.'); return; }
+
+  data.notes.unshift({
+    id: nieuwId(),
+    title: title || 'Zonder titel',
+    body,
+    date: new Date().toLocaleDateString('nl-NL')
+  });
+  if (!persist()) return;
+  document.getElementById('noteTitle').value = '';
+  document.getElementById('noteText').value = '';
+  renderNotes();
+  toast('Notitie bewaard');
+}
+
+function notitieKaart(note, { opBewerken, opVerwijderen, mapNaam = '', opMap = null }) {
+  return el('div', { className: 'kaart' },
+    mapNaam ? el('span', { className: 'map-label', textContent: '📁 ' + mapNaam }) : '',
+    el('h3', { textContent: note.title }),
+    el('p', { className: 'muted', textContent: note.date || '' }),
+    el('div', { className: 'tekst', textContent: note.body || '' }),
+    el('button', { className: 'knop klein zacht', textContent: '✏️ Bewerken', onclick: opBewerken }),
+    opMap ? el('button', { className: 'knop klein zacht', textContent: '📁 Map', onclick: opMap }) : '',
+    el('button', { className: 'knop klein zacht', textContent: '🗑️ Verwijderen', onclick: opVerwijderen })
+  );
+}
+
+function mapNaamVan(id) {
+  if (!id) return '';
+  return alleMappen().find(map => map.id === id)?.naam || '';
+}
+
+// Bewerken, aan een map koppelen en verwijderen van een gewone notitie.
+// Na een wijziging wordt het scherm vernieuwd waar je op dat moment bent.
+function notitieActies(note, vernieuw) {
+  return {
+    mapNaam: mapNaamVan(note.folderId),
+    opBewerken: async () => {
+      const nieuw = await bewerkNotitieDialoog(note);
+      if (!nieuw) return;
+      note.title = nieuw.title;
+      note.body = nieuw.body;
+      persist();
+      vernieuw();
+    },
+    opMap: async () => {
+      const mappen = alleMappen();
+      if (!mappen.length) {
+        meld('Maak eerst een map aan in Mijn Memoaris.');
+        return;
+      }
+      const keuze = await kiesUit('Bij welke map hoort dit verhaal?', [
+        ...mappen.map(map => ({ label: (map.id === note.folderId ? '✓ ' : '📁 ') + map.naam, waarde: map.id })),
+        ...(note.folderId ? [{ label: 'Bij geen enkele map', waarde: 'geen' }] : [])
+      ]);
+      if (!keuze) return;
+      if (keuze === 'geen') delete note.folderId;
+      else note.folderId = keuze;
+      persist();
+      vernieuw();
+      toast(keuze === 'geen' ? 'Losgekoppeld van de map' : 'Gekoppeld aan ' + mapNaamVan(keuze));
+    },
+    opVerwijderen: async () => {
+      const ok = await bevestig('Deze notitie wordt definitief verwijderd.', {
+        titel: 'Notitie verwijderen?', ok: 'Verwijderen', gevaar: true
+      });
+      if (!ok) return;
+      data.notes = data.notes.filter(n => n.id !== note.id);
+      persist();
+      vernieuw();
+    }
+  };
+}
+
+function renderNotes() {
+  const lijst = document.getElementById('noteList');
+  lijst.replaceChildren();
+
+  if (!data.notes.length) {
+    lijst.append(el('p', { className: 'leeg', textContent: 'Nog geen notities. Schrijf je eerste verhaal hierboven.' }));
+    return;
+  }
+
+  data.notes.forEach(note => lijst.append(notitieKaart(note, notitieActies(note, renderNotes))));
+}
+
+/* Verhalen die bij de map horen waar je nu in zit */
+function renderVerhalen() {
+  const blok = document.getElementById('verhalenBlok');
+  blok.hidden = path.length === 0;
+  if (blok.hidden) return;
+
+  const mapId = path[path.length - 1];
+  const lijst = document.getElementById('verhalenLijst');
+  lijst.replaceChildren();
+
+  const verhalen = data.notes.filter(note => note.folderId === mapId);
+  if (!verhalen.length) {
+    lijst.append(el('p', { className: 'muted', textContent: 'Nog geen verhalen bij deze map. Schrijf er een, of koppel een bestaande notitie via Notes.' }));
+    return;
+  }
+
+  verhalen.forEach(note => {
+    const acties = notitieActies(note, renderVerhalen);
+    acties.mapNaam = '';
+    lijst.append(notitieKaart(note, acties));
+  });
+}
+
+async function nieuwVerhaalInMap() {
+  if (!path.length) return;
+  const nieuw = await bewerkNotitieDialoog({ title: '', body: '' }, 'Nieuw verhaal');
+  if (!nieuw) return;
+  data.notes.unshift({
+    id: nieuwId(),
+    ...nieuw,
+    folderId: path[path.length - 1],
+    date: new Date().toLocaleDateString('nl-NL')
+  });
+  if (!persist()) return;
+  renderVerhalen();
+  laadFotos();
+  toast('Verhaal bewaard');
+}
+
+/* ===================== Foto's en video's ===================== */
+function bewaarMedia(bestand) {
+  return slaMediaItemOp({
+    id: crypto.randomUUID(),
+    folderId: path.length ? path[path.length - 1] : 'home',
+    bestand,
+    datum: new Date().toISOString()
+  });
+}
+
+async function toonMedia(event) {
+  const bestanden = Array.from(event.target.files || []).filter(b =>
+    b.type.startsWith('image/') || b.type.startsWith('video/'));
+  event.target.value = '';
+  if (!bestanden.length) return;
+
+  let mislukt = 0;
+  for (const bestand of bestanden) {
+    try {
+      await bewaarMedia(bestand);
+    } catch (fout) {
+      console.error('Opslaan mislukt:', fout);
+      mislukt++;
+    }
+  }
+
+  laadFotos();
+  const gelukt = bestanden.length - mislukt;
+  if (gelukt) toast(gelukt === 1 ? '1 herinnering toegevoegd' : gelukt + ' herinneringen toegevoegd');
+  if (mislukt) meld(mislukt + ' bestand(en) konden niet worden opgeslagen.');
+}
+
+document.getElementById('galleryInput').addEventListener('change', toonMedia);
+document.getElementById('cameraInput').addEventListener('change', toonMedia);
+
+let laadBeurt = 0;
+
+async function laadFotos() {
+  const beurt = ++laadBeurt;
+  const preview = document.getElementById('mediaPreview');
+
+  let media;
+  try {
+    media = await alleMedia();
+  } catch (fout) {
+    console.error(fout);
+    meld('Opgeslagen foto’s konden niet worden geladen.');
+    return;
+  }
+
+  // Een nieuwere laadactie is al bezig: deze niet meer tonen.
+  if (beurt !== laadBeurt) return;
+
+  preview.replaceChildren();
+  ruimUrlsOp();
+
+  const huidigeMap = path.length ? path[path.length - 1] : 'home';
+  const hier = media
+    .filter(foto => foto.folderId === huidigeMap && !foto.verwijderdOp)
+    .sort((a, b) => (b.datum || '').localeCompare(a.datum || ''));
+
+  document.getElementById('leegAlbum').hidden = hier.length > 0 || currentFolders().length > 0 ||
+    (path.length > 0 && data.notes.some(note => note.folderId === huidigeMap));
+
+  hier.forEach(foto => {
+    const isVideo = foto.bestand.type.startsWith('video/');
+    const url = maakUrl(foto.bestand);
+    const tegel = el('button', {
+      className: 'tegel' + (isVideo ? ' video' : ''),
+      onclick: () => openFotoViewer(foto, url)
+    });
+    tegel.setAttribute('aria-label', foto.bijschrift || (isVideo ? 'Video' : 'Foto'));
+
+    const element = el(isVideo ? 'video' : 'img', { src: url });
+    if (isVideo) {
+      element.muted = true;
+      element.playsInline = true;
+      element.preload = 'metadata';
+    } else {
+      element.alt = '';
+      element.loading = 'lazy';
+    }
+    tegel.append(element);
+    preview.append(tegel);
+  });
+}
+
+/* ===================== Private (versleuteld met pincode) ===================== */
+// Privénotities en -foto's worden versleuteld (AES-GCM) met een sleutel die uit
+// de pincode wordt afgeleid (PBKDF2). De pincode zelf wordt nergens opgeslagen.
+const PRIVATE_KEY = 'memoaris-private-v1';
+const POGINGEN_KEY = 'memoaris-private-pogingen';
+const PBKDF2_RONDES = 600000;
+const AUTO_SLOT_MS = 2 * 60 * 1000;
+
+let privateSleutel = null; // bestaat alleen in het geheugen zolang Private open is
+let privateNotities = [];
+let privateTimer = null;
+let privateUrls = [];
+let privateKiestBestand = false; // fotokiezer of camera is open
+let privateWeergave = 'menu';    // 'menu', 'fotos' of 'notities'
+
+function ruimPrivateUrlsOp() {
+  privateUrls.forEach(url => URL.revokeObjectURL(url));
+  privateUrls = [];
+}
+
+function naarB64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let tekst = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    tekst += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(tekst);
+}
+
+function vanB64(b64) {
+  const tekst = atob(b64);
+  const bytes = new Uint8Array(tekst.length);
+  for (let i = 0; i < tekst.length; i++) bytes[i] = tekst.charCodeAt(i);
+  return bytes;
+}
+
+function leesPrivateKluis() {
+  try {
+    const kluis = JSON.parse(localStorage.getItem(PRIVATE_KEY));
+    return kluis && kluis.versie === 1 ? kluis : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function maakSleutel(pin, salt, rondes) {
+  const basis = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: rondes, hash: 'SHA-256' },
+    basis,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function bewaarPrivate() {
+  if (!privateSleutel) throw new Error('Private is vergrendeld.');
+  const kluis = leesPrivateKluis();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const versleuteld = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    privateSleutel,
+    new TextEncoder().encode(JSON.stringify(privateNotities))
+  );
+  localStorage.setItem(PRIVATE_KEY, JSON.stringify({
+    versie: 1,
+    salt: kluis.salt,
+    rondes: kluis.rondes,
+    iv: naarB64(iv),
+    ct: naarB64(versleuteld)
+  }));
+}
+
+async function stelPinIn(pin) {
+  // Eventuele oude, onleesbare privéfoto's opruimen.
+  await metStore('privefotos', 'readwrite', s => s.clear());
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  privateSleutel = await maakSleutel(pin, salt, PBKDF2_RONDES);
+  privateNotities = [];
+  localStorage.setItem(PRIVATE_KEY, JSON.stringify({
+    versie: 1, salt: naarB64(salt), rondes: PBKDF2_RONDES
+  }));
+  await bewaarPrivate();
+}
+
+// Geeft true als de pincode klopt. Een verkeerde code kan niet ontsleutelen.
+async function ontgrendel(pin) {
+  const kluis = leesPrivateKluis();
+  const sleutel = await maakSleutel(pin, vanB64(kluis.salt), kluis.rondes);
+  try {
+    const leesbaar = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: vanB64(kluis.iv) }, sleutel, vanB64(kluis.ct));
+    privateNotities = JSON.parse(new TextDecoder().decode(leesbaar));
+    privateSleutel = sleutel;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function vergrendelPrivate() {
+  const wasOpen = privateSleutel !== null;
+  privateSleutel = null;
+  privateNotities = [];
+  clearTimeout(privateTimer);
+  ruimPrivateUrlsOp();
+  privateWeergave = 'menu'; // na ontgrendelen altijd eerst het menu
+  if (wasOpen) {
+    sluitViewer();
+    sluitAlleDialogen();
+  }
+}
+
+function vergrendelEnToon() {
+  vergrendelPrivate();
+  if (!document.getElementById('private').hidden) renderPrivate();
+}
+
+function startAutoSlot() {
+  clearTimeout(privateTimer);
+  privateTimer = setTimeout(vergrendelEnToon, AUTO_SLOT_MS);
+}
+
+// Wijzigt de notities en slaat versleuteld op; bij een fout terug naar de oude stand.
+async function wijzigPrivate(wijziging) {
+  if (!privateSleutel) return false;
+  const vorige = privateNotities;
+  privateNotities = wijziging(privateNotities.map(n => ({ ...n })));
+  try {
+    await bewaarPrivate();
+    return true;
+  } catch (fout) {
+    console.error(fout);
+    privateNotities = vorige;
+    meld('Opslaan is niet gelukt.');
+    return false;
+  }
+}
+
+/* Te veel foute pogingen: steeds langer wachten (blijft bewaard na herladen). */
+function leesPogingen() {
+  try {
+    return JSON.parse(localStorage.getItem(POGINGEN_KEY)) || { aantal: 0, tot: 0 };
+  } catch (e) {
+    return { aantal: 0, tot: 0 };
+  }
+}
+
+function registreerFout() {
+  const pogingen = leesPogingen();
+  pogingen.aantal++;
+  if (pogingen.aantal >= 5) {
+    pogingen.tot = Date.now() + Math.min(30000 * 2 ** (pogingen.aantal - 5), 3600000);
+  }
+  localStorage.setItem(POGINGEN_KEY, JSON.stringify(pogingen));
+}
+
+function resetPogingen() {
+  localStorage.removeItem(POGINGEN_KEY);
+}
+
+function resterendeBlokkade() {
+  return Math.max(0, leesPogingen().tot - Date.now());
+}
+
+/* Privéfoto's: elk bestand wordt apart versleuteld in IndexedDB bewaard. */
+async function versleutelBestand(bestand) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, privateSleutel, await bestand.arrayBuffer());
+  return { id: crypto.randomUUID(), iv, ct, type: bestand.type, datum: new Date().toISOString() };
+}
+
+async function ontsleutelFoto(item, sleutel) {
+  const inhoud = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: item.iv }, sleutel, item.ct);
+  return new Blob([inhoud], { type: item.type });
+}
+
+function kiesPriveBestand(input) {
+  privateKiestBestand = true;
+  clearTimeout(privateTimer); // niet op slot gaan terwijl je een foto kiest
+  input.click();
+}
+
+async function voegPrivefotosToe(event) {
+  const bestanden = Array.from(event.target.files || []).filter(b =>
+    b.type.startsWith('image/') || b.type.startsWith('video/'));
+  event.target.value = '';
+  privateKiestBestand = false;
+
+  if (!privateSleutel) {
+    meld('Private is vergrendeld. Ontgrendel en probeer het opnieuw.');
+    renderPrivate();
+    return;
+  }
+  startAutoSlot();
+  if (!bestanden.length) return;
+
+  let mislukt = 0;
+  for (const bestand of bestanden) {
+    try {
+      const item = await versleutelBestand(bestand);
+      await metStore('privefotos', 'readwrite', s => s.put(item));
+    } catch (fout) {
+      console.error(fout);
+      mislukt++;
+    }
+  }
+
+  renderPrivate();
+  const gelukt = bestanden.length - mislukt;
+  if (gelukt) toast(gelukt === 1 ? '1 privéfoto versleuteld bewaard' : gelukt + ' privéfoto’s versleuteld bewaard');
+  if (mislukt) meld(mislukt + ' bestand(en) konden niet worden opgeslagen.');
+}
+
+async function laadPrivefotos(galerij) {
+  const sleutel = privateSleutel;
+
+  let items;
+  try {
+    items = await metStore('privefotos', 'readonly', s => s.getAll());
+  } catch (fout) {
+    console.error(fout);
+    galerij.textContent = 'Privéfoto’s laden is niet gelukt.';
+    return;
+  }
+
+  if (privateSleutel !== sleutel || !galerij.isConnected) return;
+  ruimPrivateUrlsOp();
+
+  if (!items.length) {
+    galerij.after(el('p', { className: 'leeg', textContent: 'Nog geen privéfoto’s.' }));
+    return;
+  }
+
+  items.sort((a, b) => b.datum.localeCompare(a.datum));
+
+  for (const item of items) {
+    let blob;
+    try { blob = await ontsleutelFoto(item, sleutel); }
+    catch (fout) { console.error(fout); continue; }
+
+    // Intussen vergrendeld of scherm vernieuwd? Dan stoppen.
+    if (privateSleutel !== sleutel || !galerij.isConnected) return;
+
+    const url = URL.createObjectURL(blob);
+    privateUrls.push(url);
+
+    const isVideo = item.type.startsWith('video/');
+    const tegel = el('button', {
+      className: 'tegel' + (isVideo ? ' video' : ''),
+      onclick: () => openPriveViewer(item, url, isVideo)
+    });
+    tegel.setAttribute('aria-label', isVideo ? 'Privévideo' : 'Privéfoto');
+    const element = el(isVideo ? 'video' : 'img', { src: url });
+    if (isVideo) {
+      element.muted = true;
+      element.playsInline = true;
+      element.preload = 'metadata';
+    } else {
+      element.alt = '';
+    }
+    tegel.append(element);
+    galerij.append(tegel);
+  }
+}
+
+function openPriveViewer(item, url, isVideo) {
+  openViewer({
+    url, isVideo,
+    datum: item.datum,
+    acties: [{
+      label: '🗑️ Definitief verwijderen',
+      soort: 'gevaar',
+      onclick: async () => {
+        const ok = await bevestig('Privéfoto’s gaan niet naar de prullenbak. Dit kan niet ongedaan worden gemaakt.', {
+          titel: 'Definitief verwijderen?', ok: 'Verwijderen', gevaar: true
+        });
+        if (!ok || !privateSleutel) return;
+        try {
+          await metStore('privefotos', 'readwrite', s => s.delete(item.id));
+          sluitViewer();
+          renderPrivate();
+          toast('Definitief verwijderd');
+        } catch (fout) {
+          console.error(fout);
+          meld('Verwijderen is niet gelukt.');
+        }
+      }
+    }]
+  });
+}
+
+/* Private: schermen */
+function pinVeld(placeholder) {
+  const veld = el('input', { type: 'password', placeholder, maxLength: 6, autocomplete: 'off' });
+  veld.inputMode = 'numeric';
+  veld.pattern = '[0-9]*';
+  return veld;
+}
+
+function openPrivateWeergave(weergave) {
+  privateWeergave = weergave;
+  renderPrivate();
+  window.scrollTo(0, 0);
+}
+
+// De terugknop gaat binnen Private eerst terug naar het menu.
+function privateTerug() {
+  if (privateSleutel && privateWeergave !== 'menu') openPrivateWeergave('menu');
+  else show('home');
+}
+
+function vergrendelKnop() {
+  return el('button', { className: 'knop zacht', textContent: '🔒 Vergrendelen', onclick: vergrendelEnToon });
+}
+
+function menuKaart(symbool, titel, uitleg, onclick) {
+  return el('button', { className: 'card', onclick },
+    el('span', { className: 'symbol', textContent: symbool }),
+    el('span', {}, el('h2', { textContent: titel }), el('p', { textContent: uitleg }))
+  );
+}
+
+function renderPrivate() {
+  const doos = document.getElementById('privateInhoud');
+  doos.replaceChildren();
+
+  if (!window.crypto || !crypto.subtle) {
+    doos.append(el('p', {
+      className: 'waarschuwing',
+      textContent: 'De privéruimte werkt alleen als de app via een https-adres geopend is.'
+    }));
+    return;
+  }
+
+  const titels = { menu: '🔒 Private', fotos: '🖼️ Privéfoto’s', notities: '📝 Privénotities' };
+  const ontgrendeld = leesPrivateKluis() && privateSleutel;
+  document.getElementById('privateTitel').textContent = ontgrendeld ? titels[privateWeergave] : '🔒 Private';
+
+  if (!leesPrivateKluis()) return toonPinInstellen(doos);
+  if (!privateSleutel) return toonPinInvoer(doos);
+
+  if (privateWeergave === 'fotos') toonPrivateFotos(doos);
+  else if (privateWeergave === 'notities') toonPrivateNotities(doos);
+  else toonPrivateMenu(doos);
+}
+
+function toonPinInstellen(doos) {
+  const pin1 = pinVeld('Kies een pincode van 6 cijfers');
+  const pin2 = pinVeld('Herhaal je pincode');
+  const melding = el('p', { className: 'muted' });
+  const knop = el('button', { className: 'knop', textContent: 'Pincode instellen' });
+
+  knop.onclick = async () => {
+    if (!/^\d{6}$/.test(pin1.value)) { melding.textContent = 'Gebruik precies 6 cijfers.'; return; }
+    if (pin1.value !== pin2.value) { melding.textContent = 'De pincodes zijn niet gelijk.'; return; }
+
+    knop.disabled = true;
+    melding.textContent = 'Bezig met beveiligen…';
+    try {
+      await stelPinIn(pin1.value);
+      resetPogingen();
+      startAutoSlot();
+      renderPrivate();
+      toast('Je privéruimte is klaar');
+    } catch (fout) {
+      console.error(fout);
+      knop.disabled = false;
+      melding.textContent = 'Instellen is niet gelukt.';
+    }
+  };
+
+  doos.append(
+    el('p', { textContent: 'Stel een pincode in voor je privéruimte. Alles wat je hier bewaart, wordt versleuteld met deze code.' }),
+    el('p', { className: 'waarschuwing', textContent: 'Let op: vergeet je je pincode, dan kan niemand je privénotities en -foto’s terughalen.' }),
+    pin1, pin2, knop, melding
+  );
+}
+
+function toonPinInvoer(doos) {
+  const pin = pinVeld('Pincode');
+  const melding = el('p', { className: 'muted' });
+  const knop = el('button', { className: 'knop', textContent: 'Ontgrendelen' });
+
+  const probeer = async () => {
+    const wacht = resterendeBlokkade();
+    if (wacht > 0) {
+      melding.textContent = 'Te veel pogingen. Probeer het over ' + Math.ceil(wacht / 1000) + ' seconden opnieuw.';
+      return;
+    }
+    if (!/^\d{6}$/.test(pin.value)) { melding.textContent = 'Vul je 6 cijfers in.'; return; }
+
+    knop.disabled = true;
+    melding.textContent = 'Controleren…';
+
+    let gelukt = false;
+    try { gelukt = await ontgrendel(pin.value); }
+    catch (fout) { console.error(fout); }
+
+    if (gelukt) {
+      resetPogingen();
+      startAutoSlot();
+      renderPrivate();
+      return;
+    }
+
+    registreerFout();
+    pin.value = '';
+    knop.disabled = false;
+    const nieuweWacht = resterendeBlokkade();
+    melding.textContent = nieuweWacht > 0
+      ? 'Onjuiste pincode. Wacht ' + Math.ceil(nieuweWacht / 1000) + ' seconden.'
+      : 'Onjuiste pincode.';
+  };
+
+  knop.onclick = probeer;
+  pin.onkeydown = e => { if (e.key === 'Enter') probeer(); };
+
+  const vergeten = el('button', { className: 'back', textContent: 'Pincode vergeten?' });
+  vergeten.onclick = async () => {
+    const ok = await bevestig(
+      'Zonder je pincode kunnen je privénotities en -foto’s niet worden teruggehaald. ' +
+      'Je kunt de privéruimte leegmaken en een nieuwe pincode instellen, maar alles in Private wordt dan definitief verwijderd.',
+      { titel: 'Pincode vergeten?', ok: 'Leegmaken', gevaar: true }
+    );
+    if (!ok) return;
+    const bevestiging = await vraagTekst('Weet je het zeker?', {
+      tekst: 'Typ WISSEN om alles in Private definitief te verwijderen.',
+      placeholder: 'WISSEN',
+      ok: 'Verwijderen'
+    });
+    if (bevestiging === null) return;
+    if (bevestiging.trim().toUpperCase() !== 'WISSEN') {
+      meld('Er is niets verwijderd.');
+      return;
+    }
+    try {
+      await metStore('privefotos', 'readwrite', s => s.clear());
+    } catch (fout) {
+      console.error(fout);
+      meld('Wissen is niet gelukt.');
+      return;
+    }
+    localStorage.removeItem(PRIVATE_KEY);
+    resetPogingen();
+    renderPrivate();
+    toast('Private is leeggemaakt');
+  };
+
+  doos.append(
+    el('p', { textContent: 'Voer je pincode in om je privéruimte te openen.' }),
+    pin, knop, melding, vergeten
+  );
+  setTimeout(() => pin.focus(), 50);
+}
+
+function toonPrivateMenu(doos) {
+  const aantal = privateNotities.length;
+  doos.append(
+    el('p', { className: 'muted', textContent: 'Ontgrendeld. Vergrendelt automatisch na 2 minuten zonder activiteit.' }),
+    menuKaart('🖼️', 'Privéfoto’s', 'Foto’s en video’s, versleuteld bewaard', () => openPrivateWeergave('fotos')),
+    menuKaart('📝', 'Privénotities', aantal === 1 ? '1 notitie' : aantal + ' notities', () => openPrivateWeergave('notities')),
+    vergrendelKnop()
+  );
+}
+
+function toonPrivateFotos(doos) {
+  const galerijInput = el('input', { type: 'file', accept: 'image/*,video/*', multiple: true, hidden: true });
+  galerijInput.onchange = voegPrivefotosToe;
+
+  const cameraInput = el('input', { type: 'file', accept: 'image/*', hidden: true });
+  cameraInput.setAttribute('capture', 'environment');
+  cameraInput.onchange = voegPrivefotosToe;
+
+  const galerij = el('div', { className: 'raster' });
+
+  doos.append(
+    el('div', { className: 'knoppenrij' },
+      el('button', { className: 'knop', textContent: '🖼️ Foto’s toevoegen', onclick: () => kiesPriveBestand(galerijInput) }),
+      el('button', { className: 'knop', textContent: '📷 Camera', onclick: () => kiesPriveBestand(cameraInput) })
+    ),
+    galerijInput, cameraInput,
+    galerij,
+    vergrendelKnop()
+  );
+
+  laadPrivefotos(galerij);
+}
+
+function toonPrivateNotities(doos) {
+  const titel = el('input', { placeholder: 'Titel' });
+  const tekst = el('textarea', { placeholder: 'Schrijf hier iets privés...' });
+  const opslaan = el('button', { className: 'knop', textContent: 'Privé bewaren' });
+
+  opslaan.onclick = async () => {
+    const t = titel.value.trim();
+    const b = tekst.value.trim();
+    if (!t && !b) { meld('Schrijf eerst iets.'); return; }
+
+    const nieuw = { id: nieuwId(), title: t || 'Zonder titel', body: b, date: new Date().toLocaleDateString('nl-NL') };
+    if (await wijzigPrivate(lijst => [nieuw, ...lijst])) {
+      renderPrivate();
+      toast('Versleuteld bewaard');
+    }
+  };
+
+  const lijst = el('div');
+  if (!privateNotities.length) {
+    lijst.append(el('p', { className: 'leeg', textContent: 'Nog geen privénotities.' }));
+  }
+
+  privateNotities.forEach(note => lijst.append(notitieKaart(note, {
+    opBewerken: async () => {
+      const nieuw = await bewerkNotitieDialoog(note);
+      if (!nieuw) return;
+      const ok = await wijzigPrivate(l => l.map(n => n.id === note.id ? { ...n, ...nieuw } : n));
+      if (ok) renderPrivate();
+    },
+    opVerwijderen: async () => {
+      const ok = await bevestig('Deze privénotitie wordt definitief verwijderd.', {
+        titel: 'Notitie verwijderen?', ok: 'Verwijderen', gevaar: true
+      });
+      if (!ok) return;
+      if (await wijzigPrivate(l => l.filter(n => n.id !== note.id))) renderPrivate();
+    }
+  })));
+
+  doos.append(titel, tekst, opslaan, lijst, vergrendelKnop());
+}
+
+// Elke aanraking of toetsaanslag houdt Private langer open.
+['pointerdown', 'keydown'].forEach(soort => {
+  document.addEventListener(soort, () => {
+    if (privateSleutel && !privateKiestBestand) startAutoSlot();
+  });
+});
+
+// Ga je naar een andere app of vergrendel je je telefoon, dan gaat Private op slot.
+// Uitzondering: tijdens het kiezen van een foto of het gebruik van de camera.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && privateSleutel && !privateKiestBestand) vergrendelEnToon();
+});
+
+// Fotokiezer geannuleerd: de gewone beveiliging weer aanzetten.
+window.addEventListener('focus', () => {
+  if (!privateKiestBestand) return;
+  setTimeout(() => {
+    if (privateKiestBestand) {
+      privateKiestBestand = false;
+      if (privateSleutel) startAutoSlot();
+    }
+  }, 1500);
+});
+
+/* ===================== Back-up maken ===================== */
+function leesAlsDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const lezer = new FileReader();
+    lezer.onload = () => resolve(lezer.result);
+    lezer.onerror = () => reject(lezer.error);
+    lezer.readAsDataURL(blob);
+  });
+}
+
+async function maakBackup() {
+  try {
+    const fotos = await alleMedia();
+    const kluis = leesPrivateKluis();
+    const privefotos = kluis ? await metStore('privefotos', 'readonly', s => s.getAll()) : [];
+
+    const totaleGrootte =
+      fotos.reduce((totaal, foto) => totaal + (foto.bestand?.size || 0), 0) +
+      privefotos.reduce((totaal, item) => totaal + (item.ct?.byteLength || 0), 0);
+
+    if (totaleGrootte > MAX_BACKUP) {
+      meld('Je herinneringen zijn samen te groot voor een back-up in deze versie. Er is niets veranderd.');
+      return;
+    }
+
+    toast('Back-up wordt gemaakt…');
+
+    const media = [];
+    for (const foto of fotos) {
+      const { bestand, ...gegevens } = foto;
+      media.push({
+        ...gegevens,
+        bestandsnaam: bestand.name || 'herinnering',
+        bestandstype: bestand.type,
+        inhoud: await leesAlsDataUrl(bestand)
+      });
+    }
+
+    // Private gaat mee zoals hij is: versleuteld. Alleen met de pincode leesbaar.
+    const prive = kluis ? {
+      kluis,
+      fotos: privefotos.map(item => ({
+        id: item.id,
+        iv: naarB64(item.iv),
+        ct: naarB64(item.ct),
+        type: item.type,
+        datum: item.datum
+      }))
+    } : null;
+
+    const backup = {
+      versie: 1,
+      gemaaktOp: new Date().toISOString(),
+      mappenEnNotities: data,
+      media,
+      ...(prive ? { prive } : {})
+    };
+
+    const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = el('a', {
+      href: url,
+      download: 'memoaris-backup-' + new Date().toISOString().slice(0, 10) + '.json'
+    });
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+    meld(
+      'Je back-up wordt gedownload. Controleer of het bestand is opgeslagen en bewaar het op een veilige plek, bijvoorbeeld in iCloud of Google Drive.' +
+      (prive ? '\n\nPrivate zit er versleuteld in. Je hebt je pincode nodig om het terug te zetten.' : ''),
+      'Back-up gemaakt'
+    );
+  } catch (fout) {
+    console.error('Back-up mislukt:', fout);
+    meld('De back-up kon niet worden gemaakt. Er is niets verwijderd.');
+  }
+}
+
+/* ===================== Back-up herstellen ===================== */
+function isPriveBackupGeldig(prive) {
+  return prive &&
+    prive.kluis && prive.kluis.versie === 1 &&
+    ['salt', 'iv', 'ct'].every(sleutel => typeof prive.kluis[sleutel] === 'string') &&
+    typeof prive.kluis.rondes === 'number' &&
+    Array.isArray(prive.fotos) &&
+    prive.fotos.every(item => item &&
+      ['id', 'iv', 'ct', 'type'].every(sleutel => typeof item[sleutel] === 'string'));
+}
+
+async function leesBackupVoorHerstel(bestand) {
+  if (!bestand) throw new Error('Geen bestand gekozen.');
+  if (bestand.size > 32 * 1024 * 1024) throw new Error('Het back-upbestand is te groot.');
+
+  let backup;
+  try {
+    backup = JSON.parse(await bestand.text());
+  } catch (e) {
+    throw new Error('Dit is geen Memoaris-back-up.');
+  }
+
+  if (
+    !backup ||
+    backup.versie !== 1 ||
+    !backup.mappenEnNotities ||
+    !Array.isArray(backup.mappenEnNotities.folders) ||
+    !Array.isArray(backup.mappenEnNotities.notes) ||
+    !Array.isArray(backup.media)
+  ) {
+    throw new Error('Dit is geen geldige Memoaris-back-up.');
+  }
+
+  if (!backup.media.every(item =>
+    item && typeof item.id === 'string' && typeof item.inhoud === 'string' && item.inhoud.startsWith('data:')
+  )) {
+    throw new Error('De back-up bevat ongeldige foto’s of video’s.');
+  }
+
+  if (backup.prive && !isPriveBackupGeldig(backup.prive)) {
+    throw new Error('Het Private-deel van de back-up is beschadigd.');
+  }
+
+  return backup;
+}
+
+function controleerHerstelKoppelingen(backup) {
+  const ids = new Set(['home']);
+
+  function verzamel(mappen) {
+    for (const map of mappen) {
+      if (!map || typeof map.id !== 'string') throw new Error('De back-up bevat een ongeldige map.');
+      ids.add(map.id);
+      if (Array.isArray(map.children)) verzamel(map.children);
+    }
+  }
+
+  verzamel(data.folders);
+  verzamel(backup.mappenEnNotities.folders);
+  return backup.media.filter(item => !ids.has(item.folderId)).length;
+}
+
+async function herstelMediaBestand(item) {
+  const response = await fetch(item.inhoud);
+  if (!response.ok) throw new Error('Een foto in de back-up kan niet gelezen worden.');
+  const blob = await response.blob();
+  if (blob.size === 0) throw new Error('Een foto in de back-up is leeg.');
+  return new File([blob], item.bestandsnaam || 'herinnering', {
+    type: item.bestandstype || blob.type,
+    lastModified: Date.now()
+  });
+}
+
+// Voegt een hersteld bestand alleen toe als het nog niet bestaat.
+async function slaHersteldMediaOp(item, bestand) {
+  const db = await openDB();
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction('fotos', 'readwrite');
+      const store = tx.objectStore('fotos');
+      let toegevoegd = false;
+
+      const controle = store.get(item.id);
+      controle.onsuccess = () => {
+        if (controle.result) return;
+        store.add({
+          id: item.id,
+          folderId: item.folderId,
+          bestand,
+          datum: item.datum,
+          ...(item.bijschrift ? { bijschrift: item.bijschrift } : {}),
+          ...(item.verwijderdOp != null ? { verwijderdOp: item.verwijderdOp } : {})
+        });
+        toegevoegd = true;
+      };
+
+      tx.oncomplete = () => resolve(toegevoegd);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+function bereidHerstelMappenVoor(backupMappen) {
+  function samenvoegen(bestaande, opgeslagen) {
+    const resultaat = bestaande.map(map => ({
+      ...map,
+      children: Array.isArray(map.children) ? [...map.children] : []
+    }));
+
+    for (const map of opgeslagen) {
+      if (!map || typeof map.id !== 'string') throw new Error('De back-up bevat een ongeldige map.');
+      const index = resultaat.findIndex(huidig => huidig.id === map.id);
+      if (index === -1) {
+        resultaat.push({ ...map, children: samenvoegen([], map.children || []) });
+      } else {
+        resultaat[index].children = samenvoegen(resultaat[index].children, map.children || []);
+      }
+    }
+    return resultaat;
+  }
+
+  return samenvoegen(data.folders, backupMappen);
+}
+
+function bereidHerstelNotitiesVoor(backupNotities) {
+  // Met id: vergelijk op id. Oude back-ups zonder id: vergelijk op inhoud.
+  const zelfde = (a, b) => (a.id && b.id)
+    ? a.id === b.id
+    : a.title === b.title && a.body === b.body && a.date === b.date;
+
+  const resultaat = [...data.notes];
+  for (const note of backupNotities) {
+    if (!note || typeof note !== 'object') throw new Error('De back-up bevat een ongeldige notitie.');
+    if (!resultaat.some(huidig => zelfde(huidig, note))) {
+      resultaat.push({ ...note, id: note.id || nieuwId() });
+    }
+  }
+  return resultaat;
+}
+
+// Zet Private terug. Twee privéruimtes met een andere pincode kunnen niet samen.
+async function herstelPrive(prive) {
+  const huidige = leesPrivateKluis();
+
+  if (huidige && huidige.salt !== prive.kluis.salt) {
+    return 'Private is niet teruggezet, omdat er op dit toestel al een privéruimte met een andere pincode is.';
+  }
+
+  const bestaande = new Set(await metStore('privefotos', 'readonly', s => s.getAllKeys()));
+  const nieuw = prive.fotos.filter(item => !bestaande.has(item.id));
+
+  await metStore('privefotos', 'readwrite', s => {
+    nieuw.forEach(item => s.put({
+      id: item.id,
+      iv: vanB64(item.iv),
+      ct: vanB64(item.ct),
+      type: item.type,
+      datum: item.datum
+    }));
+  });
+
+  if (!huidige) {
+    localStorage.setItem(PRIVATE_KEY, JSON.stringify(prive.kluis));
+    vergrendelPrivate();
+    return 'Private is teruggezet. Open het met je oude pincode.';
+  }
+  return nieuw.length
+    ? nieuw.length + ' privéfoto(’s) teruggezet in Private.'
+    : 'Private was al volledig.';
+}
+
+async function herstelBackupVeilig(bestand) {
+  if (!bestand) return;
+
+  try {
+    const backup = await leesBackupVoorHerstel(bestand);
+    const nieuweMappen = bereidHerstelMappenVoor(backup.mappenEnNotities.folders);
+    const nieuweNotities = bereidHerstelNotitiesVoor(backup.mappenEnNotities.notes);
+
+    if (controleerHerstelKoppelingen(backup) > 0) {
+      meld('Herstel gestopt: sommige foto’s in de back-up horen bij een map die niet bestaat. Er is niets veranderd.');
+      return;
+    }
+
+    const ids = new Set();
+    for (const item of backup.media) {
+      if (ids.has(item.id)) throw new Error('De back-up bevat dubbele foto’s.');
+      ids.add(item.id);
+    }
+
+    const bestanden = [];
+    for (const item of backup.media) {
+      bestanden.push({ item, bestandMedia: await herstelMediaBestand(item) });
+    }
+
+    const ok = await bevestig(
+      'Je huidige herinneringen blijven bewaard. Alles wat ontbreekt, wordt toegevoegd.' +
+      (backup.prive ? '\n\nDe back-up bevat ook een versleutelde privéruimte.' : ''),
+      { titel: 'Back-up terugzetten?', ok: 'Terugzetten' }
+    );
+    if (!ok) return;
+
+    let toegevoegd = 0;
+    for (const { item, bestandMedia } of bestanden) {
+      if (await slaHersteldMediaOp(item, bestandMedia)) toegevoegd++;
+    }
+
+    const notitiesToegevoegd = nieuweNotities.length - data.notes.length;
+    data.folders = nieuweMappen;
+    data.notes = nieuweNotities;
+    persist();
+
+    const priveMelding = backup.prive ? '\n\n' + await herstelPrive(backup.prive) : '';
+
+    renderFolders();
+    meld(
+      toegevoegd + ' foto’s en video’s toegevoegd.\n' +
+      notitiesToegevoegd + ' notities toegevoegd.' +
+      priveMelding,
+      'Back-up teruggezet'
+    );
+  } catch (fout) {
+    console.error(fout);
+    meld('Het terugzetten is niet (volledig) gelukt: ' + fout.message);
+  }
+}
+
+/* ===================== Welkomstscherm ===================== */
+function isGeinstalleerd() {
+  return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+
+function toonWelkom() {
+  const stappen = [
+    { symbool: '👋', titel: 'Welkom bij Memoaris', tekst: 'Bewaar je foto’s, video’s en verhalen op één fijne plek.' },
+    { symbool: '📁', titel: 'Mappen en notities', tekst: 'Maak een map voor elke herinnering, voeg bijschriften toe en schrijf je verhalen erbij.' },
+    { symbool: '🔒', titel: 'Veilig op je telefoon', tekst: 'Alles blijft op je eigen toestel. Geheime dingen bewaar je in Private, beveiligd met een pincode. Maak regelmatig een back-up.' }
+  ];
+  if (!isGeinstalleerd()) {
+    stappen.push({
+      symbool: '📲',
+      titel: 'Zet Memoaris op je beginscherm',
+      tekst: 'iPhone: tik in Safari op Delen en kies “Zet op beginscherm”.\nAndroid: tik in Chrome op ⋮ en kies “App installeren”.'
+    });
+  }
+
+  let stap = 0;
+  const scherm = el('div', { className: 'welkom' });
+  scherm.setAttribute('role', 'dialog');
+  scherm.setAttribute('aria-modal', 'true');
+  const doos = el('div', { className: 'welkom-doos' });
+  scherm.append(doos);
+
+  function klaar() {
+    try { localStorage.setItem(WELKOM_KEY, '1'); } catch (e) {}
+    scherm.remove();
+  }
+
+  function teken() {
+    const huidige = stappen[stap];
+    const laatste = stap === stappen.length - 1;
+    const tekst = el('p', { textContent: huidige.tekst });
+    tekst.style.whiteSpace = 'pre-line';
+
+    doos.replaceChildren(
+      el('div', { className: 'welkom-symbool', textContent: huidige.symbool }),
+      el('h2', { textContent: huidige.titel }),
+      tekst,
+      el('div', { className: 'stippen' }, ...stappen.map((_, i) => el('span', { className: i === stap ? 'actief' : '' }))),
+      el('button', {
+        className: 'knop',
+        textContent: laatste ? 'Aan de slag' : 'Volgende',
+        onclick: () => { if (laatste) klaar(); else { stap++; teken(); } }
+      }),
+      laatste ? '' : el('button', { className: 'back', textContent: 'Overslaan', onclick: klaar })
+    );
+  }
+
+  teken();
+  document.body.append(scherm);
+}
+
+/* ===================== Opstarten ===================== */
+// Vraag de browser om de opslag niet automatisch te wissen.
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+
+// Offline werken en installeren als app.
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(fout => console.error('Service worker:', fout));
+}
+
+// Ruim verlopen prullenbak-items op bij het openen van de app.
+ruimPrullenbakOp().catch(fout => console.error('Prullenbak opruimen mislukt:', fout));
+
+let welkomGezien = false;
+try { welkomGezien = localStorage.getItem(WELKOM_KEY) === '1'; } catch (e) {}
+// Bestaande gebruikers (met mappen of notities) slaan het welkomstscherm over.
+if (!welkomGezien && !data.folders.length && !data.notes.length) toonWelkom();
+</script>
+</body>
+</html>
