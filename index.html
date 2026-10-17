@@ -78,6 +78,23 @@ header {
   border-radius: 0 0 28px 28px;
 }
 .logo { display: block; width: 100%; max-width: 340px; height: auto; margin: 0 auto 12px; border-radius: 12px; }
+/* In de donkere modus staat het logo op een lichte kaart, zodat de donkerblauwe tekst leesbaar blijft. */
+@media (prefers-color-scheme: dark) {
+  .logo {
+    max-width: 320px;
+    padding: 14px 22px;
+    background: #f3f7fd;
+    border-radius: 22px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* Labeltje met de map waar een notitie bij hoort */
+.map-label {
+  display: inline-block; margin: 0 0 6px; padding: 3px 10px;
+  border-radius: 999px; background: var(--primair-zacht); color: var(--primair-tekst);
+  font-size: 13px; font-weight: 600;
+}
 .merknaam { font-size: 34px; margin: 12px 0; }
 .slogan { color: var(--slogan); font-size: 19px; font-weight: 700; letter-spacing: 0.3px; margin: 12px 0; }
 
@@ -287,6 +304,12 @@ textarea { min-height: 140px; resize: vertical; }
   <div id="mediaPreview" class="raster"></div>
   <p id="leegAlbum" class="leeg" hidden>Nog niets hier. Maak een map of voeg foto's toe.</p>
 
+  <div id="verhalenBlok" class="blok" hidden>
+    <h3>📝 Verhalen bij deze map</h3>
+    <div id="verhalenLijst"></div>
+    <button class="knop zacht" onclick="nieuwVerhaalInMap()">+ Verhaal schrijven</button>
+  </div>
+
   <div id="backupBlok" class="blok">
     <h3>💾 Back-up</h3>
     <p class="muted">Alles staat alleen op dit toestel. Maak regelmatig een back-up, zodat je niets kwijtraakt als je telefoon stuk of zoek raakt.</p>
@@ -316,9 +339,9 @@ textarea { min-height: 140px; resize: vertical; }
   <button class="back" onclick="show('home')">← Terug</button>
   <h2>🗑️ Prullenbak</h2>
   <p class="muted">
-    Verwijderde herinneringen blijven maximaal 30 dagen bewaard.
-    Gratis gebruikers kunnen ze binnen 7 dagen herstellen.
-    Met Premium kan dat tot 30 dagen.
+    Verwijderde herinneringen blijven 30 dagen in de prullenbak en worden daarna automatisch gewist.
+    In de eerste 7 dagen kun je ze terugzetten.
+    Met Premium, binnenkort beschikbaar, kan dat de volle 30 dagen.
   </p>
   <div id="prullenbakLijst"></div>
 </section>
@@ -453,9 +476,9 @@ function kiesUit(titel, keuzes) {
 }
 
 // Titel en tekst van een notitie bewerken. Geeft { title, body } of null.
-async function bewerkNotitieDialoog(note) {
+async function bewerkNotitieDialoog(note, titel = 'Notitie bewerken') {
   const antwoord = await toonDialoog({
-    titel: 'Notitie bewerken',
+    titel,
     velden: [
       { waarde: note.title, placeholder: 'Titel' },
       { waarde: note.body || '', placeholder: 'Tekst', meerregelig: true }
@@ -466,6 +489,7 @@ async function bewerkNotitieDialoog(note) {
     ]
   });
   if (!antwoord) return null;
+  if (!antwoord[0].trim() && !antwoord[1].trim()) return null;
   return { title: antwoord[0].trim() || 'Zonder titel', body: antwoord[1] };
 }
 
@@ -766,7 +790,7 @@ async function laadPrullenbak() {
     kaart.append(el('p', {
       textContent: kanHerstellen
         ? '🗑️ Nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard'
-        : '🔒 Premium nodig om te herstellen'
+        : '🔒 Nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard. Terugzetten na 7 dagen kan straks met Premium.'
     }));
 
     if (kanHerstellen) {
@@ -931,15 +955,20 @@ function renderFolders() {
         return;
       }
 
-      const ok = await bevestig('De map "' + folder.name + '" is leeg en wordt verwijderd.', {
-        titel: 'Map verwijderen?', ok: 'Verwijderen', gevaar: true
-      });
+      const gekoppeld = data.notes.filter(note => note.folderId === folder.id);
+      const ok = await bevestig(
+        'De map "' + folder.name + '" bevat geen foto’s en wordt verwijderd.' +
+        (gekoppeld.length === 1 ? '\n\nHet verhaal bij deze map blijft gewoon bewaard in Notes.' : '') +
+        (gekoppeld.length > 1 ? '\n\nDe ' + gekoppeld.length + ' verhalen bij deze map blijven gewoon bewaard in Notes.' : ''),
+        { titel: 'Map verwijderen?', ok: 'Verwijderen', gevaar: true }
+      );
       if (!ok) return;
 
       const mappen = currentFolders();
       const index = mappen.findIndex(map => map.id === folder.id);
       if (index === -1) return;
       mappen.splice(index, 1);
+      gekoppeld.forEach(note => { delete note.folderId; });
       persist();
       renderFolders();
       toast('Map verwijderd');
@@ -948,6 +977,7 @@ function renderFolders() {
     list.append(el('div', { className: 'map' }, open, hernoem, omslag, verwijder));
   });
 
+  renderVerhalen();
   laadFotos();
 }
 
@@ -978,14 +1008,63 @@ function saveNote() {
   toast('Notitie bewaard');
 }
 
-function notitieKaart(note, { opBewerken, opVerwijderen }) {
+function notitieKaart(note, { opBewerken, opVerwijderen, mapNaam = '', opMap = null }) {
   return el('div', { className: 'kaart' },
+    mapNaam ? el('span', { className: 'map-label', textContent: '📁 ' + mapNaam }) : '',
     el('h3', { textContent: note.title }),
     el('p', { className: 'muted', textContent: note.date || '' }),
     el('div', { className: 'tekst', textContent: note.body || '' }),
     el('button', { className: 'knop klein zacht', textContent: '✏️ Bewerken', onclick: opBewerken }),
+    opMap ? el('button', { className: 'knop klein zacht', textContent: '📁 Map', onclick: opMap }) : '',
     el('button', { className: 'knop klein zacht', textContent: '🗑️ Verwijderen', onclick: opVerwijderen })
   );
+}
+
+function mapNaamVan(id) {
+  if (!id) return '';
+  return alleMappen().find(map => map.id === id)?.naam || '';
+}
+
+// Bewerken, aan een map koppelen en verwijderen van een gewone notitie.
+// Na een wijziging wordt het scherm vernieuwd waar je op dat moment bent.
+function notitieActies(note, vernieuw) {
+  return {
+    mapNaam: mapNaamVan(note.folderId),
+    opBewerken: async () => {
+      const nieuw = await bewerkNotitieDialoog(note);
+      if (!nieuw) return;
+      note.title = nieuw.title;
+      note.body = nieuw.body;
+      persist();
+      vernieuw();
+    },
+    opMap: async () => {
+      const mappen = alleMappen();
+      if (!mappen.length) {
+        meld('Maak eerst een map aan in Mijn Memoaris.');
+        return;
+      }
+      const keuze = await kiesUit('Bij welke map hoort dit verhaal?', [
+        ...mappen.map(map => ({ label: (map.id === note.folderId ? '✓ ' : '📁 ') + map.naam, waarde: map.id })),
+        ...(note.folderId ? [{ label: 'Bij geen enkele map', waarde: 'geen' }] : [])
+      ]);
+      if (!keuze) return;
+      if (keuze === 'geen') delete note.folderId;
+      else note.folderId = keuze;
+      persist();
+      vernieuw();
+      toast(keuze === 'geen' ? 'Losgekoppeld van de map' : 'Gekoppeld aan ' + mapNaamVan(keuze));
+    },
+    opVerwijderen: async () => {
+      const ok = await bevestig('Deze notitie wordt definitief verwijderd.', {
+        titel: 'Notitie verwijderen?', ok: 'Verwijderen', gevaar: true
+      });
+      if (!ok) return;
+      data.notes = data.notes.filter(n => n.id !== note.id);
+      persist();
+      vernieuw();
+    }
+  };
 }
 
 function renderNotes() {
@@ -997,25 +1076,46 @@ function renderNotes() {
     return;
   }
 
-  data.notes.forEach(note => lijst.append(notitieKaart(note, {
-    opBewerken: async () => {
-      const nieuw = await bewerkNotitieDialoog(note);
-      if (!nieuw) return;
-      note.title = nieuw.title;
-      note.body = nieuw.body;
-      persist();
-      renderNotes();
-    },
-    opVerwijderen: async () => {
-      const ok = await bevestig('Deze notitie wordt definitief verwijderd.', {
-        titel: 'Notitie verwijderen?', ok: 'Verwijderen', gevaar: true
-      });
-      if (!ok) return;
-      data.notes = data.notes.filter(n => n.id !== note.id);
-      persist();
-      renderNotes();
-    }
-  })));
+  data.notes.forEach(note => lijst.append(notitieKaart(note, notitieActies(note, renderNotes))));
+}
+
+/* Verhalen die bij de map horen waar je nu in zit */
+function renderVerhalen() {
+  const blok = document.getElementById('verhalenBlok');
+  blok.hidden = path.length === 0;
+  if (blok.hidden) return;
+
+  const mapId = path[path.length - 1];
+  const lijst = document.getElementById('verhalenLijst');
+  lijst.replaceChildren();
+
+  const verhalen = data.notes.filter(note => note.folderId === mapId);
+  if (!verhalen.length) {
+    lijst.append(el('p', { className: 'muted', textContent: 'Nog geen verhalen bij deze map. Schrijf er een, of koppel een bestaande notitie via Notes.' }));
+    return;
+  }
+
+  verhalen.forEach(note => {
+    const acties = notitieActies(note, renderVerhalen);
+    acties.mapNaam = '';
+    lijst.append(notitieKaart(note, acties));
+  });
+}
+
+async function nieuwVerhaalInMap() {
+  if (!path.length) return;
+  const nieuw = await bewerkNotitieDialoog({ title: '', body: '' }, 'Nieuw verhaal');
+  if (!nieuw) return;
+  data.notes.unshift({
+    id: nieuwId(),
+    ...nieuw,
+    folderId: path[path.length - 1],
+    date: new Date().toLocaleDateString('nl-NL')
+  });
+  if (!persist()) return;
+  renderVerhalen();
+  laadFotos();
+  toast('Verhaal bewaard');
 }
 
 /* ===================== Foto's en video's ===================== */
@@ -1079,7 +1179,8 @@ async function laadFotos() {
     .filter(foto => foto.folderId === huidigeMap && !foto.verwijderdOp)
     .sort((a, b) => (b.datum || '').localeCompare(a.datum || ''));
 
-  document.getElementById('leegAlbum').hidden = hier.length > 0 || currentFolders().length > 0;
+  document.getElementById('leegAlbum').hidden = hier.length > 0 || currentFolders().length > 0 ||
+    (path.length > 0 && data.notes.some(note => note.folderId === huidigeMap));
 
   hier.forEach(foto => {
     const isVideo = foto.bestand.type.startsWith('video/');
