@@ -1169,7 +1169,8 @@ function slaHersteldMediaOp(item, bestand) {
           id: item.id,
           folderId: item.folderId,
           bestand: bestand,
-          datum: item.datum
+          datum: item.datum,
+...(item.verwijderdOp != null ? { verwijderdOp: item.verwijderdOp } : {})
         });
 
         toegevoegd = true;
