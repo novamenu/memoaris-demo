@@ -113,6 +113,41 @@ header {
 body.selecteren main { padding-bottom: 150px; }
 body.selecteren .toast { bottom: calc(150px + env(safe-area-inset-bottom)); }
 
+/* Notities: compacte lijst en een eigen scherm per notitie */
+.notitie-item {
+  position: relative; display: block; width: 100%; margin: 10px 0; padding: 16px 44px 16px 18px;
+  border: 0; border-radius: var(--radius); background: var(--kaart); box-shadow: var(--schaduw); text-align: left;
+}
+.notitie-item::after {
+  content: "›"; position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+  color: var(--zacht); font-size: 26px; line-height: 1;
+}
+.notitie-item h3 { margin: 0 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notitie-item .voorproef {
+  margin: 0; color: var(--zacht); font-size: 14px; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.notitie-item .map-label { margin-bottom: 8px; }
+
+.notitie-scherm {
+  position: fixed; inset: 0; z-index: 8500; display: flex; flex-direction: column;
+  background: var(--bg); animation: omhoog 0.2s ease-out;
+}
+.notitie-balk {
+  display: flex; align-items: center; gap: 8px;
+  padding: calc(8px + env(safe-area-inset-top)) 16px 8px; border-bottom: 1px solid var(--rand);
+}
+.notitie-balk .back { margin-right: auto; font-size: 17px; }
+.notitie-inhoud {
+  flex: 1; overflow-y: auto; width: 100%; max-width: 650px; margin: 0 auto;
+  padding: 14px 20px calc(40px + env(safe-area-inset-bottom));
+}
+.notitie-meta { margin: 0; color: var(--zacht); font-size: 13px; }
+.notitie-titel, .notitie-tekst { border: 0; background: transparent; border-radius: 0; padding: 4px 0; }
+.notitie-titel { margin: 6px 0 2px; font-size: 26px; font-weight: 700; }
+.notitie-tekst { margin: 0; min-height: 60vh; font-size: 17px; line-height: 1.6; resize: none; }
+.notitie-titel:focus, .notitie-tekst:focus { outline: none; }
+
 /* Labeltje met de map waar een notitie bij hoort */
 .map-label {
   display: inline-block; margin: 0 0 6px; padding: 3px 10px;
@@ -361,9 +396,7 @@ textarea { min-height: 140px; resize: vertical; }
 <section id="notes" hidden>
   <button class="back" onclick="show('home')">← Terug</button>
   <h2>📝 Mijn Notes</h2>
-  <input id="noteTitle" placeholder="Titel van je notitie">
-  <textarea id="noteText" placeholder="Schrijf hier je herinnering..."></textarea>
-  <button class="knop" onclick="saveNote()">Notitie bewaren</button>
+  <button class="knop" onclick="nieuweNotitie()">+ Nieuwe notitie</button>
   <div id="noteList"></div>
 </section>
 
@@ -519,24 +552,6 @@ function kiesUit(titel, keuzes) {
   return toonDialoog({ titel, keuzes, knoppen: [{ label: 'Annuleren', waarde: null, soort: 'zacht' }] });
 }
 
-// Titel en tekst van een notitie bewerken. Geeft { title, body } of null.
-async function bewerkNotitieDialoog(note, titel = 'Notitie bewerken') {
-  const antwoord = await toonDialoog({
-    titel,
-    velden: [
-      { waarde: note.title, placeholder: 'Titel' },
-      { waarde: note.body || '', placeholder: 'Tekst', meerregelig: true }
-    ],
-    knoppen: [
-      { label: 'Annuleren', waarde: null, soort: 'zacht' },
-      { label: 'Opslaan', waarde: 'invoer' }
-    ]
-  });
-  if (!antwoord) return null;
-  if (!antwoord[0].trim() && !antwoord[1].trim()) return null;
-  return { title: antwoord[0].trim() || 'Zonder titel', body: antwoord[1] };
-}
-
 let toastTimer = null;
 function toast(tekst) {
   document.querySelector('.toast')?.remove();
@@ -644,6 +659,7 @@ function show(page) {
   // Wie de privéruimte verlaat, vergrendelt hem meteen.
   if (page !== 'private') vergrendelPrivate();
   sluitViewer();
+  sluitNotitieScherm(true);
   stopSelectie();
 
   document.querySelectorAll('main section').forEach(s => s.hidden = true);
@@ -1035,33 +1051,17 @@ async function newFolder() {
 }
 
 /* ===================== Notities ===================== */
-function saveNote() {
-  const title = document.getElementById('noteTitle').value.trim();
-  const body = document.getElementById('noteText').value.trim();
-  if (!title && !body) { meld('Schrijf eerst iets.'); return; }
-
-  data.notes.unshift({
-    id: nieuwId(),
-    title: title || 'Zonder titel',
-    body,
-    date: new Date().toLocaleDateString('nl-NL')
-  });
-  if (!persist()) return;
-  document.getElementById('noteTitle').value = '';
-  document.getElementById('noteText').value = '';
-  renderNotes();
-  toast('Notitie bewaard');
+function vandaag() {
+  return new Date().toLocaleDateString('nl-NL');
 }
 
-function notitieKaart(note, { opBewerken, opVerwijderen, mapNaam = '', opMap = null }) {
-  return el('div', { className: 'kaart' },
+// Eén notitie in een lijst: titel, datum en een stukje tekst. Tik om te openen.
+function notitieKaart(note, { mapNaam = '', onclick }) {
+  const eersteRegels = (note.body || '').trim().replace(/\s*\n\s*/g, ' · ');
+  return el('button', { className: 'notitie-item', onclick },
     mapNaam ? el('span', { className: 'map-label', textContent: '📁 ' + mapNaam }) : '',
-    el('h3', { textContent: note.title }),
-    el('p', { className: 'muted', textContent: note.date || '' }),
-    el('div', { className: 'tekst', textContent: note.body || '' }),
-    el('button', { className: 'knop klein zacht', textContent: '✏️ Bewerken', onclick: opBewerken }),
-    opMap ? el('button', { className: 'knop klein zacht', textContent: '📁 Map', onclick: opMap }) : '',
-    el('button', { className: 'knop klein zacht', textContent: '🗑️ Verwijderen', onclick: opVerwijderen })
+    el('h3', { textContent: note.title || 'Zonder titel' }),
+    el('p', { className: 'voorproef', textContent: (note.date || '') + (eersteRegels ? '  ·  ' + eersteRegels : '') })
   );
 }
 
@@ -1070,46 +1070,164 @@ function mapNaamVan(id) {
   return alleMappen().find(map => map.id === id)?.naam || '';
 }
 
-// Bewerken, aan een map koppelen en verwijderen van een gewone notitie.
-// Na een wijziging wordt het scherm vernieuwd waar je op dat moment bent.
-function notitieActies(note, vernieuw) {
-  return {
+/* Het notitiescherm. Alles wordt vanzelf bewaard terwijl je typt. */
+let notitieScherm = null;
+
+function openNotitieScherm({ note, opslaan, verwijder, kiesMap = null, mapNaam = '', nieuw = false }) {
+  sluitNotitieScherm(false);
+
+  const titel = el('input', {
+    className: 'notitie-titel',
+    placeholder: 'Titel',
+    value: note.title === 'Zonder titel' ? '' : (note.title || '')
+  });
+  const tekst = el('textarea', {
+    className: 'notitie-tekst',
+    placeholder: nieuw ? 'Begin hier met schrijven…' : 'Schrijf hier…',
+    value: note.body || ''
+  });
+  const status = el('span');
+  const label = el('span', { className: 'map-label', textContent: '📁 ' + mapNaam });
+  label.hidden = !mapNaam;
+  const meta = el('p', { className: 'notitie-meta' }, note.date || vandaag(), status);
+
+  const groei = () => {
+    tekst.style.height = 'auto';
+    tekst.style.height = Math.max(tekst.scrollHeight, window.innerHeight * 0.6) + 'px';
+  };
+
+  let timer = null;
+  let laatst = JSON.stringify([titel.value.trim(), tekst.value]);
+  let bewaard = !nieuw;
+
+  async function bewaar() {
+    clearTimeout(timer);
+    const huidig = JSON.stringify([titel.value.trim(), tekst.value]);
+    if (huidig === laatst) return true;
+    if (!bewaard && !titel.value.trim() && !tekst.value.trim()) return true; // lege nieuwe notitie
+    const gelukt = await opslaan({ title: titel.value.trim() || 'Zonder titel', body: tekst.value.replace(/\s+$/, '') });
+    if (gelukt) {
+      laatst = huidig;
+      bewaard = true;
+      status.textContent = '  ·  Bewaard';
+    }
+    return gelukt;
+  }
+
+  const wijziging = () => {
+    status.textContent = '';
+    clearTimeout(timer);
+    timer = setTimeout(bewaar, 700);
+  };
+  titel.addEventListener('input', wijziging);
+  tekst.addEventListener('input', () => { groei(); wijziging(); });
+  titel.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tekst.focus(); } });
+
+  const klaar = el('button', { className: 'back', textContent: '← Klaar', onclick: () => sluitNotitieScherm(true) });
+  const balk = el('div', { className: 'notitie-balk' }, klaar);
+
+  if (kiesMap) {
+    balk.append(icoonKnop('📁', 'Aan map koppelen', async () => {
+        await bewaar();
+        if (!bewaard) { meld('Schrijf eerst iets voordat je de notitie aan een map koppelt.'); return; }
+        const naam = await kiesMap();
+        if (naam === null) return;
+        label.textContent = '📁 ' + naam;
+        label.hidden = !naam;
+    }));
+  }
+  balk.append(icoonKnop('🗑️', 'Verwijderen', async () => {
+    clearTimeout(timer);
+    if (!bewaard) { sluitNotitieScherm(false); return; }
+    if (await verwijder()) sluitNotitieScherm(false);
+  }));
+
+  const scherm = el('div', { className: 'notitie-scherm' },
+    balk,
+    el('div', { className: 'notitie-inhoud' }, label, meta, titel, tekst)
+  );
+  scherm.setAttribute('role', 'dialog');
+  scherm.setAttribute('aria-modal', 'true');
+
+  notitieScherm = { scherm, bewaar, timerStop: () => clearTimeout(timer) };
+  document.body.append(scherm);
+  document.body.classList.add('geen-scroll');
+  groei();
+  if (nieuw) setTimeout(() => titel.focus(), 80);
+}
+
+async function sluitNotitieScherm(eerstBewaren = true) {
+  const open = notitieScherm;
+  if (!open) return;
+  if (eerstBewaren) {
+    if (!(await open.bewaar())) return; // niet sluiten als opslaan mislukt
+  } else {
+    open.timerStop();
+  }
+  if (notitieScherm !== open) return;
+  notitieScherm = null;
+  open.scherm.remove();
+  if (!document.getElementById('viewer')) document.body.classList.remove('geen-scroll');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && notitieScherm && !openDialogen.size) sluitNotitieScherm(true);
+});
+
+async function kiesMapVoorNotitie(note) {
+  const mappen = alleMappen();
+  if (!mappen.length) {
+    meld('Maak eerst een map aan in Mijn Memoaris.');
+    return null;
+  }
+  const keuze = await kiesUit('Bij welke map hoort dit verhaal?', [
+    ...mappen.map(map => ({ label: (map.id === note.folderId ? '✓ ' : '📁 ') + map.naam, waarde: map.id })),
+    ...(note.folderId ? [{ label: 'Bij geen enkele map', waarde: 'geen' }] : [])
+  ]);
+  if (!keuze) return null;
+  if (keuze === 'geen') delete note.folderId;
+  else note.folderId = keuze;
+  persist();
+  toast(keuze === 'geen' ? 'Losgekoppeld van de map' : 'Gekoppeld aan ' + mapNaamVan(keuze));
+  return mapNaamVan(note.folderId);
+}
+
+// Opent een gewone notitie (ook voor een nieuwe). Na elke wijziging wordt
+// het scherm erachter vernieuwd, zodat de lijst klopt als je terugkomt.
+function openGewoneNotitie(note, vernieuw, nieuw = false) {
+  openNotitieScherm({
+    note, nieuw,
     mapNaam: mapNaamVan(note.folderId),
-    opBewerken: async () => {
-      const nieuw = await bewerkNotitieDialoog(note);
-      if (!nieuw) return;
-      note.title = nieuw.title;
-      note.body = nieuw.body;
-      persist();
+    opslaan: async ({ title, body }) => {
+      note.title = title;
+      note.body = body;
+      if (!data.notes.includes(note)) data.notes.unshift(note);
+      const ok = persist();
       vernieuw();
+      return ok;
     },
-    opMap: async () => {
-      const mappen = alleMappen();
-      if (!mappen.length) {
-        meld('Maak eerst een map aan in Mijn Memoaris.');
-        return;
-      }
-      const keuze = await kiesUit('Bij welke map hoort dit verhaal?', [
-        ...mappen.map(map => ({ label: (map.id === note.folderId ? '✓ ' : '📁 ') + map.naam, waarde: map.id })),
-        ...(note.folderId ? [{ label: 'Bij geen enkele map', waarde: 'geen' }] : [])
-      ]);
-      if (!keuze) return;
-      if (keuze === 'geen') delete note.folderId;
-      else note.folderId = keuze;
-      persist();
+    kiesMap: async () => {
+      const naam = await kiesMapVoorNotitie(note);
       vernieuw();
-      toast(keuze === 'geen' ? 'Losgekoppeld van de map' : 'Gekoppeld aan ' + mapNaamVan(keuze));
+      return naam;
     },
-    opVerwijderen: async () => {
+    verwijder: async () => {
       const ok = await bevestig('Deze notitie wordt definitief verwijderd.', {
         titel: 'Notitie verwijderen?', ok: 'Verwijderen', gevaar: true
       });
-      if (!ok) return;
+      if (!ok) return false;
       data.notes = data.notes.filter(n => n.id !== note.id);
       persist();
       vernieuw();
+      toast('Notitie verwijderd');
+      return true;
     }
-  };
+  });
+}
+
+function nieuweNotitie(folderId = null) {
+  const note = { id: nieuwId(), title: '', body: '', date: vandaag(), ...(folderId ? { folderId } : {}) };
+  openGewoneNotitie(note, folderId ? () => { renderVerhalen(); laadFotos(); } : renderNotes, true);
 }
 
 function renderNotes() {
@@ -1117,11 +1235,14 @@ function renderNotes() {
   lijst.replaceChildren();
 
   if (!data.notes.length) {
-    lijst.append(el('p', { className: 'leeg', textContent: 'Nog geen notities. Schrijf je eerste verhaal hierboven.' }));
+    lijst.append(el('p', { className: 'leeg', textContent: 'Nog geen notities. Tik op “+ Nieuwe notitie” om je eerste verhaal te schrijven.' }));
     return;
   }
 
-  data.notes.forEach(note => lijst.append(notitieKaart(note, notitieActies(note, renderNotes))));
+  data.notes.forEach(note => lijst.append(notitieKaart(note, {
+    mapNaam: mapNaamVan(note.folderId),
+    onclick: () => openGewoneNotitie(note, renderNotes)
+  })));
 }
 
 /* Verhalen die bij de map horen waar je nu in zit */
@@ -1140,27 +1261,13 @@ function renderVerhalen() {
     return;
   }
 
-  verhalen.forEach(note => {
-    const acties = notitieActies(note, renderVerhalen);
-    acties.mapNaam = '';
-    lijst.append(notitieKaart(note, acties));
-  });
+  verhalen.forEach(note => lijst.append(notitieKaart(note, {
+    onclick: () => openGewoneNotitie(note, () => { renderVerhalen(); laadFotos(); })
+  })));
 }
 
-async function nieuwVerhaalInMap() {
-  if (!path.length) return;
-  const nieuw = await bewerkNotitieDialoog({ title: '', body: '' }, 'Nieuw verhaal');
-  if (!nieuw) return;
-  data.notes.unshift({
-    id: nieuwId(),
-    ...nieuw,
-    folderId: path[path.length - 1],
-    date: new Date().toLocaleDateString('nl-NL')
-  });
-  if (!persist()) return;
-  renderVerhalen();
-  laadFotos();
-  toast('Verhaal bewaard');
+function nieuwVerhaalInMap() {
+  if (path.length) nieuweNotitie(path[path.length - 1]);
 }
 
 /* ===================== Foto's en video's ===================== */
@@ -1473,7 +1580,10 @@ async function zoek() {
 
   if (notities.length) {
     resultaten.append(el('h3', { textContent: '📝 Notities en verhalen' }));
-    notities.forEach(note => resultaten.append(notitieKaart(note, notitieActies(note, zoek))));
+    notities.forEach(note => resultaten.append(notitieKaart(note, {
+      mapNaam: mapNaamVan(note.folderId),
+      onclick: () => openGewoneNotitie(note, zoek)
+    })));
   }
 }
 
@@ -1589,6 +1699,7 @@ function vergrendelPrivate() {
   if (wasOpen) {
     sluitViewer();
     sluitAlleDialogen();
+    sluitNotitieScherm(false); // de sleutel is weg, dus niet meer opslaan
   }
 }
 
@@ -1968,45 +2079,44 @@ function toonPrivateFotos(doos) {
   laadPrivefotos(galerij);
 }
 
-function toonPrivateNotities(doos) {
-  const titel = el('input', { placeholder: 'Titel' });
-  const tekst = el('textarea', { placeholder: 'Schrijf hier iets privés...' });
-  const opslaan = el('button', { className: 'knop', textContent: 'Privé bewaren' });
-
-  opslaan.onclick = async () => {
-    const t = titel.value.trim();
-    const b = tekst.value.trim();
-    if (!t && !b) { meld('Schrijf eerst iets.'); return; }
-
-    const nieuw = { id: nieuwId(), title: t || 'Zonder titel', body: b, date: new Date().toLocaleDateString('nl-NL') };
-    if (await wijzigPrivate(lijst => [nieuw, ...lijst])) {
+function openPriveNotitie(note, nieuw = false) {
+  openNotitieScherm({
+    note, nieuw,
+    opslaan: async ({ title, body }) => {
+      if (!privateSleutel) return false;
+      const bestaat = privateNotities.some(n => n.id === note.id);
+      const ok = await wijzigPrivate(lijst => bestaat
+        ? lijst.map(n => n.id === note.id ? { ...n, title, body } : n)
+        : [{ ...note, title, body }, ...lijst]);
+      if (ok) renderPrivate();
+      return ok;
+    },
+    verwijder: async () => {
+      const ok = await bevestig('Deze privénotitie wordt definitief verwijderd.', {
+        titel: 'Notitie verwijderen?', ok: 'Verwijderen', gevaar: true
+      });
+      if (!ok || !privateSleutel) return false;
+      if (!(await wijzigPrivate(l => l.filter(n => n.id !== note.id)))) return false;
       renderPrivate();
-      toast('Versleuteld bewaard');
+      toast('Privénotitie verwijderd');
+      return true;
     }
-  };
+  });
+}
+
+function toonPrivateNotities(doos) {
+  const nieuw = el('button', {
+    className: 'knop', textContent: '+ Nieuwe privénotitie',
+    onclick: () => openPriveNotitie({ id: nieuwId(), title: '', body: '', date: vandaag() }, true)
+  });
 
   const lijst = el('div');
   if (!privateNotities.length) {
     lijst.append(el('p', { className: 'leeg', textContent: 'Nog geen privénotities.' }));
   }
+  privateNotities.forEach(note => lijst.append(notitieKaart(note, { onclick: () => openPriveNotitie(note) })));
 
-  privateNotities.forEach(note => lijst.append(notitieKaart(note, {
-    opBewerken: async () => {
-      const nieuw = await bewerkNotitieDialoog(note);
-      if (!nieuw) return;
-      const ok = await wijzigPrivate(l => l.map(n => n.id === note.id ? { ...n, ...nieuw } : n));
-      if (ok) renderPrivate();
-    },
-    opVerwijderen: async () => {
-      const ok = await bevestig('Deze privénotitie wordt definitief verwijderd.', {
-        titel: 'Notitie verwijderen?', ok: 'Verwijderen', gevaar: true
-      });
-      if (!ok) return;
-      if (await wijzigPrivate(l => l.filter(n => n.id !== note.id))) renderPrivate();
-    }
-  })));
-
-  doos.append(titel, tekst, opslaan, lijst, vergrendelKnop());
+  doos.append(nieuw, lijst, vergrendelKnop());
 }
 
 // Elke aanraking of toetsaanslag houdt Private langer open.
