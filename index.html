@@ -148,6 +148,12 @@ body.selecteren .toast { bottom: calc(150px + env(safe-area-inset-bottom)); }
 .notitie-tekst { margin: 0; min-height: 60vh; font-size: 17px; line-height: 1.6; resize: none; }
 .notitie-titel:focus, .notitie-tekst:focus { outline: none; }
 
+/* Taalknop onderaan het beginscherm */
+.taalknop {
+  display: block; margin: 8px auto 0; padding: 10px 16px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--zacht); font-size: 15px;
+}
+
 /* Labeltje met de map waar een notitie bij hoort */
 .map-label {
   display: inline-block; margin: 0 0 6px; padding: 3px 10px;
@@ -327,44 +333,45 @@ textarea { min-height: 140px; resize: vertical; }
          onerror="this.hidden=true;document.getElementById('merknaam').hidden=false;">
   </picture>
   <h1 class="merknaam" id="merknaam" hidden>Memoaris</h1>
-  <p class="slogan">Bewaar de momenten die tellen.</p>
+  <p class="slogan" data-t>Bewaar de momenten die tellen.</p>
 </header>
 
 <main>
 <section id="home">
   <input id="zoekVeld" class="zoekveld" type="search" placeholder="🔍 Zoek in je herinneringen"
-         aria-label="Zoek in je herinneringen" autocomplete="off" oninput="opZoeken()">
+         aria-label="Zoek in je herinneringen" data-t-placeholder data-t-aria autocomplete="off" oninput="opZoeken()">
   <div id="zoekResultaten" hidden></div>
   <div id="homeKaarten">
   <div id="backupHerinnering" class="kaart herinnering" hidden></div>
   <button class="card" onclick="show('albums')">
     <span class="symbol">🖼️</span>
-    <span><h2>Mijn Memoaris</h2><p>Foto's, video's en herinneringen</p></span>
+    <span><h2 data-t>Mijn Memoaris</h2><p data-t>Foto’s, video’s en herinneringen</p></span>
   </button>
   <button class="card" onclick="show('notes')">
     <span class="symbol">📝</span>
-    <span><h2>Notes</h2><p>Schrijf jouw persoonlijke verhalen</p></span>
+    <span><h2 data-t>Notes</h2><p data-t>Schrijf jouw persoonlijke verhalen</p></span>
   </button>
   <button class="card" onclick="show('private')">
     <span class="symbol">🔒</span>
-    <span><h2>Private</h2><p>Jouw persoonlijke privéruimte</p></span>
+    <span><h2 data-t>Private</h2><p data-t>Jouw persoonlijke privéruimte</p></span>
   </button>
   <button class="card" onclick="show('prullenbak')">
     <span class="symbol">🗑️</span>
-    <span><h2>Prullenbak</h2><p>Bekijk en herstel verwijderde herinneringen.</p></span>
+    <span><h2 data-t>Prullenbak</h2><p data-t>Bekijk en herstel verwijderde herinneringen.</p></span>
   </button>
+  <button class="taalknop" id="taalKnop" onclick="kiesTaal()" data-t-aria aria-label="Taal wijzigen"></button>
   </div>
 </section>
 
 <section id="albums" hidden>
-  <button class="back" onclick="goBack()">← Terug</button>
+  <button class="back" onclick="goBack()" data-t>← Terug</button>
   <h2 id="folderTitle">📁 Mijn Memoaris</h2>
-  <button class="knop" onclick="newFolder()">+ Nieuwe map</button>
+  <button class="knop" onclick="newFolder()" data-t>+ Nieuwe map</button>
   <div id="folderList"></div>
 
   <div class="knoppenrij">
-    <button class="knop" onclick="document.getElementById('galleryInput').click()">🖼️ Foto's en video's toevoegen</button>
-    <button class="knop" onclick="document.getElementById('cameraInput').click()">📷 Camera openen</button>
+    <button class="knop" onclick="document.getElementById('galleryInput').click()" data-t>🖼️ Foto’s en video’s toevoegen</button>
+    <button class="knop" onclick="document.getElementById('cameraInput').click()" data-t>📷 Camera openen</button>
   </div>
   <input id="galleryInput" type="file" accept="image/*,video/*" multiple hidden>
   <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden>
@@ -374,55 +381,51 @@ textarea { min-height: 140px; resize: vertical; }
     <button class="knop klein zacht" id="selecteerKnop" onclick="wisselSelectieModus()">Selecteren</button>
   </div>
   <div id="mediaPreview" class="raster"></div>
-  <p id="leegAlbum" class="leeg" hidden>Nog niets hier. Maak een map of voeg foto's toe.</p>
+  <p id="leegAlbum" class="leeg" hidden data-t>Nog niets hier. Maak een map of voeg foto’s toe.</p>
 
   <div id="verhalenBlok" class="blok" hidden>
-    <h3>📝 Verhalen bij deze map</h3>
+    <h3 data-t>📝 Verhalen bij deze map</h3>
     <div id="verhalenLijst"></div>
-    <button class="knop zacht" onclick="nieuwVerhaalInMap()">+ Verhaal schrijven</button>
+    <button class="knop zacht" onclick="nieuwVerhaalInMap()" data-t>+ Verhaal schrijven</button>
   </div>
 
   <div id="backupBlok" class="blok">
-    <h3>💾 Back-up</h3>
-    <p class="muted">Alles staat alleen op dit toestel. Maak regelmatig een back-up, zodat je niets kwijtraakt als je telefoon stuk of zoek raakt.</p>
+    <h3 data-t>💾 Back-up</h3>
+    <p class="muted" data-t>Alles staat alleen op dit toestel. Maak regelmatig een back-up, zodat je niets kwijtraakt als je telefoon stuk of zoek raakt.</p>
     <div id="opslagInfo" class="opslag"></div>
-    <button class="knop zacht" onclick="maakBackup()">📥 Back-up maken</button>
-    <button class="knop zacht" onclick="document.getElementById('herstelBackupInput').click()">📤 Back-up herstellen</button>
+    <button class="knop zacht" onclick="maakBackup()" data-t>📥 Back-up maken</button>
+    <button class="knop zacht" onclick="document.getElementById('herstelBackupInput').click()" data-t>📤 Back-up herstellen</button>
     <input id="herstelBackupInput" type="file" accept=".json,application/json" multiple hidden
            onchange="herstelBackupVeilig(this.files); this.value='';">
   </div>
 </section>
 
 <section id="notes" hidden>
-  <button class="back" onclick="show('home')">← Terug</button>
-  <h2>📝 Mijn Notes</h2>
-  <button class="knop" onclick="nieuweNotitie()">+ Nieuwe notitie</button>
+  <button class="back" onclick="show('home')" data-t>← Terug</button>
+  <h2 data-t>📝 Mijn Notes</h2>
+  <button class="knop" onclick="nieuweNotitie()" data-t>+ Nieuwe notitie</button>
   <div id="noteList"></div>
 </section>
 
 <section id="private" hidden>
-  <button class="back" onclick="privateTerug()">← Terug</button>
+  <button class="back" onclick="privateTerug()" data-t>← Terug</button>
   <h2 id="privateTitel">🔒 Private</h2>
   <div id="privateInhoud"></div>
 </section>
 
 <section id="prullenbak" hidden>
-  <button class="back" onclick="show('home')">← Terug</button>
-  <h2>🗑️ Prullenbak</h2>
-  <p class="muted">
-    Verwijderde herinneringen blijven 30 dagen in de prullenbak en worden daarna automatisch gewist.
-    In de eerste 7 dagen kun je ze terugzetten.
-    Met Premium, binnenkort beschikbaar, kan dat de volle 30 dagen.
-  </p>
+  <button class="back" onclick="show('home')" data-t>← Terug</button>
+  <h2 data-t>🗑️ Prullenbak</h2>
+  <p class="muted" data-t>Verwijderde herinneringen blijven 30 dagen in de prullenbak en worden daarna automatisch gewist. In de eerste 7 dagen kun je ze terugzetten. Met Premium, binnenkort beschikbaar, kan dat de volle 30 dagen.</p>
   <div id="prullenbakLijst"></div>
 </section>
 </main>
 
 <div id="selectieBalk" class="selectiebalk" hidden>
   <p class="telling" id="selectieTelling"></p>
-  <button class="knop zacht" id="selectieDelen" onclick="deelSelectie()">📤 Delen</button>
-  <button class="knop zacht" onclick="verplaatsSelectie()">📁 Verplaatsen</button>
-  <button class="knop gevaar" onclick="verwijderSelectie()">🗑️ Verwijderen</button>
+  <button class="knop zacht" id="selectieDelen" onclick="deelSelectie()" data-t>📤 Delen</button>
+  <button class="knop zacht" onclick="verplaatsSelectie()" data-t>📁 Verplaatsen</button>
+  <button class="knop gevaar" onclick="verwijderSelectie()" data-t>🗑️ Verwijderen</button>
 </div>
 
 <script>
@@ -446,10 +449,318 @@ function el(tag, props = {}, ...kinderen) {
   return element;
 }
 
+/* ===================== Talen ===================== */
+// Een taal toevoegen: zet hem in TALEN en LOCALES, en vertaal de lijst in VERTALINGEN.
+// De Nederlandse tekst is steeds de sleutel; {naam} is een plek die later wordt ingevuld.
+const TALEN = { nl: 'Nederlands', en: 'English' };
+const LOCALES = { nl: 'nl-NL', en: 'en-GB' };
+const TAAL_KEY = 'memoaris-taal';
+const VERTALINGEN = {
+  "en": {
+    "Bewaar de momenten die tellen.": "Keep the moments that matter.",
+    "🔍 Zoek in je herinneringen": "🔍 Search your memories",
+    "Zoek in je herinneringen": "Search your memories",
+    "Mijn Memoaris": "My Memoaris",
+    "Foto’s, video’s en herinneringen": "Photos, videos and memories",
+    "Notes": "Notes",
+    "Schrijf jouw persoonlijke verhalen": "Write your personal stories",
+    "Private": "Private",
+    "Jouw persoonlijke privéruimte": "Your personal private space",
+    "Prullenbak": "Trash",
+    "Bekijk en herstel verwijderde herinneringen.": "View and restore deleted memories.",
+    "← Terug": "← Back",
+    "+ Nieuwe map": "+ New folder",
+    "🖼️ Foto’s en video’s toevoegen": "🖼️ Add photos and videos",
+    "📷 Camera openen": "📷 Open camera",
+    "Selecteren": "Select",
+    "Nog niets hier. Maak een map of voeg foto’s toe.": "Nothing here yet. Create a folder or add photos.",
+    "📝 Verhalen bij deze map": "📝 Stories in this folder",
+    "+ Verhaal schrijven": "+ Write a story",
+    "💾 Back-up": "💾 Backup",
+    "Alles staat alleen op dit toestel. Maak regelmatig een back-up, zodat je niets kwijtraakt als je telefoon stuk of zoek raakt.": "Everything is stored only on this device. Make regular backups so you don’t lose anything if your phone breaks or gets lost.",
+    "📥 Back-up maken": "📥 Make a backup",
+    "📤 Back-up herstellen": "📤 Restore a backup",
+    "📝 Mijn Notes": "📝 My Notes",
+    "+ Nieuwe notitie": "+ New note",
+    "🔒 Private": "🔒 Private",
+    "🗑️ Prullenbak": "🗑️ Trash",
+    "Verwijderde herinneringen blijven 30 dagen in de prullenbak en worden daarna automatisch gewist. In de eerste 7 dagen kun je ze terugzetten. Met Premium, binnenkort beschikbaar, kan dat de volle 30 dagen.": "Deleted memories stay in the trash for 30 days and are then erased automatically. You can restore them during the first 7 days. With Premium, coming soon, you can do that for the full 30 days.",
+    "📤 Delen": "📤 Share",
+    "📁 Verplaatsen": "📁 Move",
+    "🗑️ Verwijderen": "🗑️ Delete",
+    "Kies je taal": "Choose your language",
+    "Taal wijzigen": "Change language",
+    "Oké": "OK",
+    "Doorgaan": "Continue",
+    "Annuleren": "Cancel",
+    "Opslaan": "Save",
+    "Opslaan is niet gelukt. Misschien is de opslag van je telefoon vol.": "Saving failed. Your phone’s storage may be full.",
+    "Sluiten": "Close",
+    "Foto": "Photo",
+    "Video": "Video",
+    "Toegevoegd op {datum}": "Added on {datum}",
+    "✏️ Bijschrift": "✏️ Caption",
+    "Bijschrift": "Caption",
+    "Waar gaat deze herinnering over?": "What is this memory about?",
+    "Bijschrift opgeslagen": "Caption saved",
+    "Het bijschrift kon niet worden opgeslagen.": "The caption could not be saved.",
+    "Verplaatst naar {naam}": "Moved to {naam}",
+    "Verplaatsen is niet gelukt.": "Moving failed.",
+    "Hij gaat naar de prullenbak, waar je hem nog kunt terughalen.": "It goes to the trash, where you can still get it back.",
+    "Herinnering verwijderen?": "Delete memory?",
+    "Verwijderen": "Delete",
+    "Naar de prullenbak verplaatst": "Moved to the trash",
+    "Verwijderen is niet gelukt.": "Deleting failed.",
+    "De prullenbak kon niet worden geladen.": "The trash could not be loaded.",
+    "Je prullenbak is leeg.": "Your trash is empty.",
+    "🗑️ Nog {n} dagen bewaard": "🗑️ Kept for {n} more days",
+    "🔒 Nog {n} dagen bewaard. Terugzetten na 7 dagen kan straks met Premium.": "🔒 Kept for {n} more days. Restoring after 7 days will soon be possible with Premium.",
+    "♻️ Herstellen": "♻️ Restore",
+    "Herinnering hersteld": "Memory restored",
+    "Herstellen is niet gelukt.": "Restoring failed.",
+    "Definitief verwijderen": "Delete permanently",
+    "Dit kan niet ongedaan worden gemaakt.": "This cannot be undone.",
+    "Definitief verwijderen?": "Delete permanently?",
+    "Definitief verwijderd": "Permanently deleted",
+    "Map": "Folder",
+    "Map hernoemen": "Rename folder",
+    "Omslagfoto kiezen": "Choose cover photo",
+    "Omslagfoto ingesteld": "Cover photo set",
+    "Deze foto kan niet als omslag worden gebruikt.": "This photo can’t be used as a cover.",
+    "Map verwijderen": "Delete folder",
+    "Deze map bevat submappen. Verwijder die eerst.": "This folder contains subfolders. Delete those first.",
+    "Controle mislukt. De map is niet verwijderd.": "Check failed. The folder was not deleted.",
+    "Deze map bevat foto’s of video’s (ook in de prullenbak). Verplaats of verwijder die eerst.": "This folder contains photos or videos (including in the trash). Move or delete those first.",
+    "De map “{naam}” bevat geen foto’s en wordt verwijderd.": "The folder “{naam}” contains no photos and will be deleted.",
+    "Het verhaal bij deze map blijft gewoon bewaard in Notes.": "The story in this folder stays saved in Notes.",
+    "De {n} verhalen bij deze map blijven gewoon bewaard in Notes.": "The {n} stories in this folder stay saved in Notes.",
+    "Map verwijderen?": "Delete folder?",
+    "Map verwijderd": "Folder deleted",
+    "Nieuwe map": "New folder",
+    "Bijvoorbeeld: Zomer 2026": "For example: Summer 2026",
+    "Aanmaken": "Create",
+    "Zonder titel": "Untitled",
+    "Titel": "Title",
+    "Begin hier met schrijven…": "Start writing here…",
+    "Schrijf hier…": "Write here…",
+    "Bewaard": "Saved",
+    "← Klaar": "← Done",
+    "Aan map koppelen": "Add to folder",
+    "Schrijf eerst iets voordat je de notitie aan een map koppelt.": "Write something first before adding the note to a folder.",
+    "Maak eerst een map aan in Mijn Memoaris.": "Create a folder in My Memoaris first.",
+    "Bij welke map hoort dit verhaal?": "Which folder does this story belong to?",
+    "Bij geen enkele map": "No folder",
+    "Losgekoppeld van de map": "Removed from the folder",
+    "Gekoppeld aan {naam}": "Added to {naam}",
+    "Deze notitie wordt definitief verwijderd.": "This note will be permanently deleted.",
+    "Notitie verwijderen?": "Delete note?",
+    "Notitie verwijderd": "Note deleted",
+    "Nog geen notities. Tik op “+ Nieuwe notitie” om je eerste verhaal te schrijven.": "No notes yet. Tap “+ New note” to write your first story.",
+    "Nog geen verhalen bij deze map. Schrijf er een, of koppel een bestaande notitie via Notes.": "No stories in this folder yet. Write one, or add an existing note from Notes.",
+    "1 herinnering toegevoegd": "1 memory added",
+    "{n} herinneringen toegevoegd": "{n} memories added",
+    "{n} bestand(en) konden niet worden opgeslagen.": "{n} file(s) could not be saved.",
+    "Opgeslagen foto’s konden niet worden geladen.": "Saved photos could not be loaded.",
+    "1 herinnering": "1 memory",
+    "{n} herinneringen": "{n} memories",
+    "Mijn Memoaris (hoofdmap)": "My Memoaris (main folder)",
+    "Maak eerst een map aan om naartoe te verplaatsen.": "Create a folder first to move things to.",
+    "Verplaatsen naar…": "Move to…",
+    "Delen van foto’s wordt op dit toestel of in deze browser niet ondersteund.": "Sharing photos isn’t supported on this device or in this browser.",
+    "Delen is niet gelukt. Probeer minder bestanden tegelijk.": "Sharing failed. Try fewer files at once.",
+    "Klaar": "Done",
+    "Tik op foto’s om ze te kiezen": "Tap photos to select them",
+    "{n} geselecteerd": "{n} selected",
+    "1 herinnering verplaatst naar {naam}": "1 memory moved to {naam}",
+    "{n} herinneringen verplaatst naar {naam}": "{n} memories moved to {naam}",
+    "Ze gaan naar de prullenbak, waar je ze nog kunt terughalen.": "They go to the trash, where you can still get them back.",
+    "1 herinnering verwijderen?": "Delete 1 memory?",
+    "{n} herinneringen verwijderen?": "Delete {n} memories?",
+    "Niets gevonden voor “{q}”.": "Nothing found for “{q}”.",
+    "📁 Mappen": "📁 Folders",
+    "Map in Mijn Memoaris": "Folder in My Memoaris",
+    "🖼️ Foto’s en video’s": "🖼️ Photos and videos",
+    "📝 Notities en verhalen": "📝 Notes and stories",
+    "Opslaan is niet gelukt.": "Saving failed.",
+    "Private is vergrendeld. Ontgrendel en probeer het opnieuw.": "Private is locked. Unlock it and try again.",
+    "1 privéfoto versleuteld bewaard": "1 private photo saved, encrypted",
+    "{n} privéfoto’s versleuteld bewaard": "{n} private photos saved, encrypted",
+    "Privéfoto’s laden is niet gelukt.": "Loading private photos failed.",
+    "Nog geen privéfoto’s.": "No private photos yet.",
+    "Privévideo": "Private video",
+    "Privéfoto": "Private photo",
+    "🗑️ Definitief verwijderen": "🗑️ Delete permanently",
+    "Privéfoto’s gaan niet naar de prullenbak. Dit kan niet ongedaan worden gemaakt.": "Private photos don’t go to the trash. This cannot be undone.",
+    "🔒 Vergrendelen": "🔒 Lock",
+    "De privéruimte werkt alleen als de app via een https-adres geopend is.": "The private space only works when the app is opened via an https address.",
+    "🖼️ Privéfoto’s": "🖼️ Private photos",
+    "📝 Privénotities": "📝 Private notes",
+    "Kies een pincode van 6 cijfers": "Choose a 6-digit PIN",
+    "Herhaal je pincode": "Repeat your PIN",
+    "Pincode instellen": "Set PIN",
+    "Gebruik precies 6 cijfers.": "Use exactly 6 digits.",
+    "De pincodes zijn niet gelijk.": "The PINs don’t match.",
+    "Bezig met beveiligen…": "Securing…",
+    "Je privéruimte is klaar": "Your private space is ready",
+    "Instellen is niet gelukt.": "Setting up failed.",
+    "Stel een pincode in voor je privéruimte. Alles wat je hier bewaart, wordt versleuteld met deze code.": "Set a PIN for your private space. Everything you keep here is encrypted with this code.",
+    "Let op: vergeet je je pincode, dan kan niemand je privénotities en -foto’s terughalen.": "Note: if you forget your PIN, nobody can recover your private notes and photos.",
+    "Pincode": "PIN",
+    "Ontgrendelen": "Unlock",
+    "Te veel pogingen. Probeer het over {s} seconden opnieuw.": "Too many attempts. Try again in {s} seconds.",
+    "Vul je 6 cijfers in.": "Enter your 6 digits.",
+    "Controleren…": "Checking…",
+    "Onjuiste pincode. Wacht {s} seconden.": "Wrong PIN. Wait {s} seconds.",
+    "Onjuiste pincode.": "Wrong PIN.",
+    "Pincode vergeten?": "Forgot your PIN?",
+    "Zonder je pincode kunnen je privénotities en -foto’s niet worden teruggehaald. Je kunt de privéruimte leegmaken en een nieuwe pincode instellen, maar alles in Private wordt dan definitief verwijderd.": "Without your PIN, your private notes and photos cannot be recovered. You can empty the private space and set a new PIN, but everything in Private will then be permanently deleted.",
+    "Leegmaken": "Empty it",
+    "Weet je het zeker?": "Are you sure?",
+    "Typ {woord} om alles in Private definitief te verwijderen.": "Type {woord} to permanently delete everything in Private.",
+    "WISSEN": "DELETE",
+    "Er is niets verwijderd.": "Nothing was deleted.",
+    "Wissen is niet gelukt.": "Erasing failed.",
+    "Private is leeggemaakt": "Private has been emptied",
+    "Voer je pincode in om je privéruimte te openen.": "Enter your PIN to open your private space.",
+    "Ontgrendeld. Vergrendelt automatisch na 2 minuten zonder activiteit.": "Unlocked. Locks automatically after 2 minutes without activity.",
+    "Privéfoto’s": "Private photos",
+    "Foto’s en video’s, versleuteld bewaard": "Photos and videos, stored encrypted",
+    "Privénotities": "Private notes",
+    "1 notitie": "1 note",
+    "{n} notities": "{n} notes",
+    "🖼️ Foto’s toevoegen": "🖼️ Add photos",
+    "📷 Camera": "📷 Camera",
+    "Deze privénotitie wordt definitief verwijderd.": "This private note will be permanently deleted.",
+    "Privénotitie verwijderd": "Private note deleted",
+    "+ Nieuwe privénotitie": "+ New private note",
+    "Nog geen privénotities.": "No private notes yet.",
+    "-deel-{d}-van-{n}": "-part-{d}-of-{n}",
+    "Back-up in {n} delen": "Backup in {n} parts",
+    "Je back-up is groot en daarom in delen gesplitst. Download alle delen en bewaar ze samen op een veilige plek.": "Your backup is large, so it has been split into parts. Download all parts and keep them together in a safe place.",
+    "Deel {d} ({grootte})": "Part {d} ({grootte})",
+    "Stoppen": "Stop",
+    "Back-up wordt gemaakt…": "Creating backup…",
+    "Niet alle delen zijn gedownload. Een back-up is pas compleet als je alle delen hebt.": "Not all parts were downloaded. A backup is only complete when you have all the parts.",
+    "Back-up niet compleet": "Backup incomplete",
+    "Alle {n} delen zijn gedownload. Bewaar ze samen, bijvoorbeeld in één map in iCloud of Google Drive.": "All {n} parts have been downloaded. Keep them together, for example in one folder in iCloud or Google Drive.",
+    "Je back-up wordt gedownload. Controleer of het bestand is opgeslagen en bewaar het op een veilige plek, bijvoorbeeld in iCloud of Google Drive.": "Your backup is downloading. Check that the file was saved and keep it in a safe place, for example in iCloud or Google Drive.",
+    "Private zit er versleuteld in. Je hebt je pincode nodig om het terug te zetten.": "Private is included, encrypted. You’ll need your PIN to restore it.",
+    "Back-up gemaakt": "Backup created",
+    "De back-up kon niet worden gemaakt. Er is niets verwijderd.": "The backup could not be created. Nothing was deleted.",
+    "💾 Tijd voor een back-up": "💾 Time for a backup",
+    "Je hebt nog nooit een back-up gemaakt. Zonder back-up ben je alles kwijt als je telefoon stuk of zoek raakt.": "You’ve never made a backup. Without one, you lose everything if your phone breaks or gets lost.",
+    "Je laatste back-up is {n} dagen geleden. Maak een nieuwe, zodat je recente herinneringen ook veilig zijn.": "Your last backup was {n} days ago. Make a new one so your recent memories are safe too.",
+    "📥 Nu back-up maken": "📥 Back up now",
+    "Later": "Later",
+    "1 foto": "1 photo",
+    "{n} foto’s": "{n} photos",
+    "1 video": "1 video",
+    "{n} video’s": "{n} videos",
+    "💽 Samen ongeveer {grootte}": "💽 About {grootte} in total",
+    " (inclusief prullenbak)": " (including trash)",
+    "💾 Laatste back-up: {datum}": "💾 Last backup: {datum}",
+    "nog nooit": "never",
+    "⚠️ Je browser kan deze opslag wissen als je de app lang niet gebruikt. Zet Memoaris op je beginscherm en maak regelmatig een back-up.": "⚠️ Your browser may erase this storage if you don’t use the app for a long time. Add Memoaris to your home screen and make regular backups.",
+    "Geen bestand gekozen.": "No file chosen.",
+    "“{naam}” is te groot om terug te zetten.": "“{naam}” is too large to restore.",
+    "“{naam}” is geen Memoaris-back-up.": "“{naam}” is not a Memoaris backup.",
+    "Dit is geen geldige Memoaris-back-up.": "This is not a valid Memoaris backup.",
+    "De back-up bevat ongeldige foto’s of video’s.": "The backup contains invalid photos or videos.",
+    "Het Private-deel van de back-up is beschadigd.": "The Private part of the backup is damaged.",
+    "De back-up bevat een ongeldige map.": "The backup contains an invalid folder.",
+    "Een foto in de back-up kan niet gelezen worden.": "A photo in the backup can’t be read.",
+    "Een foto in de back-up is leeg.": "A photo in the backup is empty.",
+    "De back-up bevat een ongeldige notitie.": "The backup contains an invalid note.",
+    "Private is niet teruggezet, omdat er op dit toestel al een privéruimte met een andere pincode is.": "Private was not restored, because this device already has a private space with a different PIN.",
+    "Private is teruggezet. Open het met je oude pincode.": "Private has been restored. Open it with your old PIN.",
+    "{n} privéfoto(’s) teruggezet in Private.": "{n} private photo(s) restored to Private.",
+    "Private was al volledig.": "Private was already complete.",
+    "Sommige foto’s in “{naam}” horen bij een map die niet bestaat.": "Some photos in “{naam}” belong to a folder that doesn’t exist.",
+    "“{naam}” bevat dubbele foto’s.": "“{naam}” contains duplicate photos.",
+    "Je huidige herinneringen blijven bewaard. Alles wat ontbreekt, wordt toegevoegd.": "Your current memories are kept. Anything missing will be added.",
+    "Je hebt {n} bestanden gekozen. Die worden één voor één teruggezet.": "You chose {n} files. They will be restored one by one.",
+    "Back-up terugzetten?": "Restore backup?",
+    "Terugzetten": "Restore",
+    "Deel {d} van {n} terugzetten…": "Restoring part {d} of {n}…",
+    "{n} foto’s en video’s toegevoegd.": "{n} photos and videos added.",
+    "{n} notities toegevoegd.": "{n} notes added.",
+    "Let op: deel {delen} van deze back-up ontbreekt nog. Zet dat deel ook terug om alles compleet te hebben.": "Note: part {delen} of this backup is still missing. Restore that part too to have everything.",
+    "Het terugzetten is gestopt: {fout}": "Restoring stopped: {fout}",
+    "Wat al was teruggezet, blijft bewaard:": "What was already restored is kept:",
+    "Niet helemaal gelukt": "Not fully successful",
+    "Back-up teruggezet": "Backup restored",
+    "Welkom bij Memoaris": "Welcome to Memoaris",
+    "Bewaar je foto’s, video’s en verhalen op één fijne plek.": "Keep your photos, videos and stories together in one lovely place.",
+    "Mappen en notities": "Folders and notes",
+    "Maak een map voor elke herinnering, voeg bijschriften toe en schrijf je verhalen erbij.": "Create a folder for every memory, add captions and write your stories alongside.",
+    "Veilig op je telefoon": "Safe on your phone",
+    "Alles blijft op je eigen toestel. Geheime dingen bewaar je in Private, beveiligd met een pincode. Maak regelmatig een back-up.": "Everything stays on your own device. Keep secret things in Private, protected with a PIN. Make regular backups.",
+    "Zet Memoaris op je beginscherm": "Add Memoaris to your home screen",
+    "iPhone: tik in Safari op Delen en kies “Zet op beginscherm”.\nAndroid: tik in Chrome op ⋮ en kies “App installeren”.": "iPhone: in Safari, tap Share and choose “Add to Home Screen”.\nAndroid: in Chrome, tap ⋮ and choose “Install app”.",
+    "Aan de slag": "Get started",
+    "Volgende": "Next",
+    "Overslaan": "Skip"
+  }
+};
+
+function kiesStartTaal() {
+  try {
+    const gekozen = localStorage.getItem(TAAL_KEY);
+    if (TALEN[gekozen]) return gekozen;
+  } catch (e) {}
+  // Anders de taal van de telefoon, als we die hebben; Nederlands of anders Engels.
+  for (const voorkeur of navigator.languages || [navigator.language || '']) {
+    const code = (voorkeur || '').slice(0, 2).toLowerCase();
+    if (TALEN[code]) return code;
+  }
+  return 'en';
+}
+
+const taal = kiesStartTaal();
+const ontbrekendeVertalingen = new Set(); // handig bij het testen van een nieuwe taal
+
+function t(tekst, waarden = {}) {
+  let uit = tekst;
+  if (taal !== 'nl') {
+    const vertaald = VERTALINGEN[taal]?.[tekst];
+    if (vertaald === undefined) ontbrekendeVertalingen.add(tekst);
+    else uit = vertaald;
+  }
+  return uit.replace(/\{(\w+)\}/g, (heel, naam) => (naam in waarden ? waarden[naam] : heel));
+}
+
+// Vertaalt de vaste teksten in de pagina (elementen met data-t).
+function vertaalPagina() {
+  document.documentElement.lang = taal;
+  document.querySelectorAll('[data-t]').forEach(element => {
+    if (!element.dataset.t) element.dataset.t = element.textContent.trim();
+    element.textContent = t(element.dataset.t);
+  });
+  document.querySelectorAll('[data-t-placeholder]').forEach(element => {
+    if (!element.dataset.tPlaceholder) element.dataset.tPlaceholder = element.placeholder;
+    element.placeholder = t(element.dataset.tPlaceholder);
+  });
+  document.querySelectorAll('[data-t-aria]').forEach(element => {
+    if (!element.dataset.tAria) element.dataset.tAria = element.getAttribute('aria-label');
+    element.setAttribute('aria-label', t(element.dataset.tAria));
+  });
+  document.getElementById('taalKnop').textContent = '🌐 ' + TALEN[taal];
+}
+
+async function kiesTaal() {
+  const keuze = await kiesUit(t('Kies je taal'), Object.entries(TALEN).map(([code, naam]) => ({
+    label: (code === taal ? '✓ ' : '') + naam,
+    waarde: code
+  })));
+  if (!keuze || keuze === taal) return;
+  try { localStorage.setItem(TAAL_KEY, keuze); } catch (e) {}
+  location.reload();
+}
+
 function formatDatum(iso) {
   const datum = new Date(iso);
   if (isNaN(datum)) return '';
-  return datum.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+  return datum.toLocaleDateString(LOCALES[taal], { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 /* ===================== Pop-ups en meldingen ===================== */
@@ -523,33 +834,33 @@ function sluitAlleDialogen() {
 }
 
 function meld(tekst, titel = '') {
-  return toonDialoog({ titel, tekst, knoppen: [{ label: 'Oké', waarde: true }] });
+  return toonDialoog({ titel, tekst, knoppen: [{ label: t('Oké'), waarde: true }] });
 }
 
-async function bevestig(tekst, { titel = '', ok = 'Doorgaan', gevaar = false } = {}) {
+async function bevestig(tekst, { titel = '', ok = t('Doorgaan'), gevaar = false } = {}) {
   const antwoord = await toonDialoog({
     titel, tekst,
     knoppen: [
-      { label: 'Annuleren', waarde: false, soort: 'zacht' },
+      { label: t('Annuleren'), waarde: false, soort: 'zacht' },
       { label: ok, waarde: true, soort: gevaar ? 'gevaar' : '' }
     ]
   });
   return antwoord === true;
 }
 
-function vraagTekst(titel, { waarde = '', placeholder = '', meerregelig = false, ok = 'Opslaan', tekst = '' } = {}) {
+function vraagTekst(titel, { waarde = '', placeholder = '', meerregelig = false, ok = t('Opslaan'), tekst = '' } = {}) {
   return toonDialoog({
     titel, tekst,
     velden: [{ waarde, placeholder, meerregelig }],
     knoppen: [
-      { label: 'Annuleren', waarde: null, soort: 'zacht' },
+      { label: t('Annuleren'), waarde: null, soort: 'zacht' },
       { label: ok, waarde: 'invoer' }
     ]
   });
 }
 
 function kiesUit(titel, keuzes) {
-  return toonDialoog({ titel, keuzes, knoppen: [{ label: 'Annuleren', waarde: null, soort: 'zacht' }] });
+  return toonDialoog({ titel, keuzes, knoppen: [{ label: t('Annuleren'), waarde: null, soort: 'zacht' }] });
 }
 
 let toastTimer = null;
@@ -583,7 +894,7 @@ function persist() {
     localStorage.setItem(KEY, JSON.stringify(data));
     return true;
   } catch (e) {
-    meld('Opslaan is niet gelukt. Misschien is de opslag van je telefoon vol.');
+    meld(t('Opslaan is niet gelukt. Misschien is de opslag van je telefoon vol.'));
     return false;
   }
 }
@@ -686,17 +997,17 @@ function openViewer({ url, isVideo, datum, bijschrift, acties }) {
   viewer.setAttribute('aria-modal', 'true');
 
   const sluiten = el('button', { className: 'viewer-sluit', textContent: '✕', onclick: sluitViewer });
-  sluiten.setAttribute('aria-label', 'Sluiten');
+  sluiten.setAttribute('aria-label', t('Sluiten'));
 
   const media = el(isVideo ? 'video' : 'img', { className: 'viewer-media', src: url });
   if (isVideo) {
     media.controls = true;
     media.playsInline = true;
   } else {
-    media.alt = bijschrift || 'Foto';
+    media.alt = bijschrift || t('Foto');
   }
 
-  const datumRegel = el('p', { className: 'viewer-datum', textContent: datum ? 'Toegevoegd op ' + formatDatum(datum) : '' });
+  const datumRegel = el('p', { className: 'viewer-datum', textContent: datum ? t('Toegevoegd op {datum}', { datum: formatDatum(datum) }) : '' });
   const bijschriftRegel = el('p', { className: 'viewer-bijschrift' });
   const zetBijschrift = tekst => {
     bijschriftRegel.textContent = tekst || '';
@@ -737,11 +1048,11 @@ function openFotoViewer(foto, url, naWijziging = laadFotos) {
     bijschrift: foto.bijschrift,
     acties: [
       {
-        label: '✏️ Bijschrift',
+        label: t('✏️ Bijschrift'),
         onclick: async ({ zetBijschrift }) => {
-          const tekst = await vraagTekst('Bijschrift', {
+          const tekst = await vraagTekst(t('Bijschrift'), {
             waarde: foto.bijschrift || '',
-            placeholder: 'Waar gaat deze herinnering over?',
+            placeholder: t('Waar gaat deze herinnering over?'),
             meerregelig: true
           });
           if (tekst === null) return;
@@ -750,19 +1061,19 @@ function openFotoViewer(foto, url, naWijziging = laadFotos) {
             await slaMediaItemOp({ ...foto, bijschrift: nieuw });
             foto.bijschrift = nieuw;
             zetBijschrift(nieuw);
-            toast('Bijschrift opgeslagen');
+            toast(t('Bijschrift opgeslagen'));
           } catch (fout) {
             console.error(fout);
-            meld('Het bijschrift kon niet worden opgeslagen.');
+            meld(t('Het bijschrift kon niet worden opgeslagen.'));
           }
         }
       },
       ...(kanDelen() ? [{
-        label: '📤 Delen',
+        label: t('📤 Delen'),
         onclick: () => deelHerinneringen([foto], foto.bijschrift)
       }] : []),
       {
-        label: '📁 Verplaatsen',
+        label: t('📁 Verplaatsen'),
         onclick: async () => {
           const doel = await kiesDoelMap(foto.folderId);
           if (!doel) return;
@@ -770,29 +1081,29 @@ function openFotoViewer(foto, url, naWijziging = laadFotos) {
             await slaMediaItemOp({ ...foto, folderId: doel.id });
             sluitViewer();
             naWijziging();
-            toast('Verplaatst naar ' + doel.naam);
+            toast(t('Verplaatst naar {naam}', { naam: doel.naam }));
           } catch (fout) {
             console.error(fout);
-            meld('Verplaatsen is niet gelukt.');
+            meld(t('Verplaatsen is niet gelukt.'));
           }
         }
       },
       {
-        label: '🗑️ Verwijderen',
+        label: t('🗑️ Verwijderen'),
         soort: 'gevaar',
         onclick: async () => {
-          const ok = await bevestig('Hij gaat naar de prullenbak, waar je hem nog kunt terughalen.', {
-            titel: 'Herinnering verwijderen?', ok: 'Verwijderen', gevaar: true
+          const ok = await bevestig(t('Hij gaat naar de prullenbak, waar je hem nog kunt terughalen.'), {
+            titel: t('Herinnering verwijderen?'), ok: t('Verwijderen'), gevaar: true
           });
           if (!ok) return;
           try {
             await slaMediaItemOp({ ...foto, verwijderdOp: Date.now() });
             sluitViewer();
             naWijziging();
-            toast('Naar de prullenbak verplaatst');
+            toast(t('Naar de prullenbak verplaatst'));
           } catch (fout) {
             console.error(fout);
-            meld('Verwijderen is niet gelukt.');
+            meld(t('Verwijderen is niet gelukt.'));
           }
         }
       }
@@ -810,7 +1121,7 @@ async function laadPrullenbak() {
     media = await alleMedia();
   } catch (fout) {
     console.error(fout);
-    lijst.textContent = 'De prullenbak kon niet worden geladen.';
+    lijst.textContent = t('De prullenbak kon niet worden geladen.');
     return;
   }
 
@@ -822,7 +1133,7 @@ async function laadPrullenbak() {
     .sort((a, b) => b.verwijderdOp - a.verwijderdOp);
 
   if (!verwijderd.length) {
-    lijst.append(el('p', { className: 'leeg', textContent: 'Je prullenbak is leeg.' }));
+    lijst.append(el('p', { className: 'leeg', textContent: t('Je prullenbak is leeg.') }));
     return;
   }
 
@@ -849,42 +1160,42 @@ async function laadPrullenbak() {
 
     kaart.append(el('p', {
       textContent: kanHerstellen
-        ? '🗑️ Nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard'
-        : '🔒 Nog ' + Math.max(0, 30 - dagen) + ' dagen bewaard. Terugzetten na 7 dagen kan straks met Premium.'
+        ? t('🗑️ Nog {n} dagen bewaard', { n: Math.max(0, 30 - dagen) })
+        : t('🔒 Nog {n} dagen bewaard. Terugzetten na 7 dagen kan straks met Premium.', { n: Math.max(0, 30 - dagen) })
     }));
 
     if (kanHerstellen) {
-      const herstelKnop = el('button', { className: 'knop klein', textContent: '♻️ Herstellen' });
+      const herstelKnop = el('button', { className: 'knop klein', textContent: t('♻️ Herstellen') });
       herstelKnop.onclick = async () => {
         herstelKnop.disabled = true;
         try {
           const hersteld = { ...foto };
           delete hersteld.verwijderdOp;
           await slaMediaItemOp(hersteld);
-          toast('Herinnering hersteld');
+          toast(t('Herinnering hersteld'));
           laadPrullenbak();
         } catch (fout) {
           console.error(fout);
           herstelKnop.disabled = false;
-          meld('Herstellen is niet gelukt.');
+          meld(t('Herstellen is niet gelukt.'));
         }
       };
       kaart.append(herstelKnop);
     }
 
-    const definitief = el('button', { className: 'knop klein zacht', textContent: 'Definitief verwijderen' });
+    const definitief = el('button', { className: 'knop klein zacht', textContent: t('Definitief verwijderen') });
     definitief.onclick = async () => {
-      const ok = await bevestig('Dit kan niet ongedaan worden gemaakt.', {
-        titel: 'Definitief verwijderen?', ok: 'Verwijderen', gevaar: true
+      const ok = await bevestig(t('Dit kan niet ongedaan worden gemaakt.'), {
+        titel: t('Definitief verwijderen?'), ok: t('Verwijderen'), gevaar: true
       });
       if (!ok) return;
       try {
         await verwijderMediaDefinitief([foto.id]);
-        toast('Definitief verwijderd');
+        toast(t('Definitief verwijderd'));
         laadPrullenbak();
       } catch (fout) {
         console.error(fout);
-        meld('Verwijderen is niet gelukt.');
+        meld(t('Verwijderen is niet gelukt.'));
       }
     };
     kaart.append(definitief);
@@ -956,7 +1267,7 @@ function renderFolders() {
   const list = document.getElementById('folderList');
   list.replaceChildren();
   document.getElementById('folderTitle').textContent =
-    path.length ? '📁 ' + (currentFolderName() || 'Map') : '📁 Mijn Memoaris';
+    path.length ? '📁 ' + (currentFolderName() || t('Map')) : '📁 ' + t('Mijn Memoaris');
   document.getElementById('backupBlok').hidden = path.length > 0;
 
   currentFolders().forEach(folder => {
@@ -970,8 +1281,8 @@ function renderFolders() {
       open.style.backgroundImage = `url("${folder.cover}")`;
     }
 
-    const hernoem = icoonKnop('✏️', 'Map hernoemen', async () => {
-      const naam = await vraagTekst('Map hernoemen', { waarde: folder.name });
+    const hernoem = icoonKnop('✏️', t('Map hernoemen'), async () => {
+      const naam = await vraagTekst(t('Map hernoemen'), { waarde: folder.name });
       if (naam && naam.trim()) {
         folder.name = naam.trim();
         persist();
@@ -979,26 +1290,26 @@ function renderFolders() {
       }
     });
 
-    const omslag = icoonKnop('🖼️', 'Omslagfoto kiezen', () => {
+    const omslag = icoonKnop('🖼️', t('Omslagfoto kiezen'), () => {
       const input = el('input', { type: 'file', accept: 'image/*' });
       input.onchange = async () => {
         const bestand = input.files[0];
         if (!bestand) return;
         try {
           folder.cover = await verkleinAfbeelding(bestand);
-          if (persist()) toast('Omslagfoto ingesteld');
+          if (persist()) toast(t('Omslagfoto ingesteld'));
           renderFolders();
         } catch (fout) {
           console.error(fout);
-          meld('Deze foto kan niet als omslag worden gebruikt.');
+          meld(t('Deze foto kan niet als omslag worden gebruikt.'));
         }
       };
       input.click();
     });
 
-    const verwijder = icoonKnop('🗑️', 'Map verwijderen', async () => {
+    const verwijder = icoonKnop('🗑️', t('Map verwijderen'), async () => {
       if (folder.children?.length > 0) {
-        meld('Deze map bevat submappen. Verwijder die eerst.');
+        meld(t('Deze map bevat submappen. Verwijder die eerst.'));
         return;
       }
 
@@ -1007,21 +1318,21 @@ function renderFolders() {
         media = await alleMedia();
       } catch (fout) {
         console.error(fout);
-        meld('Controle mislukt. De map is niet verwijderd.');
+        meld(t('Controle mislukt. De map is niet verwijderd.'));
         return;
       }
 
       if (media.some(foto => foto.folderId === folder.id)) {
-        meld('Deze map bevat foto’s of video’s (ook in de prullenbak). Verplaats of verwijder die eerst.');
+        meld(t('Deze map bevat foto’s of video’s (ook in de prullenbak). Verplaats of verwijder die eerst.'));
         return;
       }
 
       const gekoppeld = data.notes.filter(note => note.folderId === folder.id);
       const ok = await bevestig(
-        'De map "' + folder.name + '" bevat geen foto’s en wordt verwijderd.' +
-        (gekoppeld.length === 1 ? '\n\nHet verhaal bij deze map blijft gewoon bewaard in Notes.' : '') +
-        (gekoppeld.length > 1 ? '\n\nDe ' + gekoppeld.length + ' verhalen bij deze map blijven gewoon bewaard in Notes.' : ''),
-        { titel: 'Map verwijderen?', ok: 'Verwijderen', gevaar: true }
+        t('De map “{naam}” bevat geen foto’s en wordt verwijderd.', { naam: folder.name }) +
+        (gekoppeld.length === 1 ? '\n\n' + t('Het verhaal bij deze map blijft gewoon bewaard in Notes.') : '') +
+        (gekoppeld.length > 1 ? '\n\n' + t('De {n} verhalen bij deze map blijven gewoon bewaard in Notes.', { n: gekoppeld.length }) : ''),
+        { titel: t('Map verwijderen?'), ok: t('Verwijderen'), gevaar: true }
       );
       if (!ok) return;
 
@@ -1032,7 +1343,7 @@ function renderFolders() {
       gekoppeld.forEach(note => { delete note.folderId; });
       persist();
       renderFolders();
-      toast('Map verwijderd');
+      toast(t('Map verwijderd'));
     });
 
     list.append(el('div', { className: 'map' }, open, hernoem, omslag, verwijder));
@@ -1043,7 +1354,7 @@ function renderFolders() {
 }
 
 async function newFolder() {
-  const naam = await vraagTekst('Nieuwe map', { placeholder: 'Bijvoorbeeld: Zomer 2026', ok: 'Aanmaken' });
+  const naam = await vraagTekst(t('Nieuwe map'), { placeholder: t('Bijvoorbeeld: Zomer 2026'), ok: t('Aanmaken') });
   if (!naam || !naam.trim()) return;
   currentFolders().push({ id: nieuwId(), name: naam.trim(), children: [] });
   persist();
@@ -1052,7 +1363,16 @@ async function newFolder() {
 
 /* ===================== Notities ===================== */
 function vandaag() {
-  return new Date().toLocaleDateString('nl-NL');
+  return new Date().toLocaleDateString(LOCALES[taal]);
+}
+
+// Lege titels worden leeg bewaard; oude notities kunnen nog 'Zonder titel' bevatten.
+function heeftEigenTitel(note) {
+  return !!note.title && note.title !== 'Zonder titel';
+}
+
+function titelVan(note) {
+  return heeftEigenTitel(note) ? note.title : t('Zonder titel');
 }
 
 // Eén notitie in een lijst: titel, datum en een stukje tekst. Tik om te openen.
@@ -1060,7 +1380,7 @@ function notitieKaart(note, { mapNaam = '', onclick }) {
   const eersteRegels = (note.body || '').trim().replace(/\s*\n\s*/g, ' · ');
   return el('button', { className: 'notitie-item', onclick },
     mapNaam ? el('span', { className: 'map-label', textContent: '📁 ' + mapNaam }) : '',
-    el('h3', { textContent: note.title || 'Zonder titel' }),
+    el('h3', { textContent: titelVan(note) }),
     el('p', { className: 'voorproef', textContent: (note.date || '') + (eersteRegels ? '  ·  ' + eersteRegels : '') })
   );
 }
@@ -1078,12 +1398,12 @@ function openNotitieScherm({ note, opslaan, verwijder, kiesMap = null, mapNaam =
 
   const titel = el('input', {
     className: 'notitie-titel',
-    placeholder: 'Titel',
-    value: note.title === 'Zonder titel' ? '' : (note.title || '')
+    placeholder: t('Titel'),
+    value: heeftEigenTitel(note) ? note.title : ''
   });
   const tekst = el('textarea', {
     className: 'notitie-tekst',
-    placeholder: nieuw ? 'Begin hier met schrijven…' : 'Schrijf hier…',
+    placeholder: nieuw ? t('Begin hier met schrijven…') : t('Schrijf hier…'),
     value: note.body || ''
   });
   const status = el('span');
@@ -1105,11 +1425,11 @@ function openNotitieScherm({ note, opslaan, verwijder, kiesMap = null, mapNaam =
     const huidig = JSON.stringify([titel.value.trim(), tekst.value]);
     if (huidig === laatst) return true;
     if (!bewaard && !titel.value.trim() && !tekst.value.trim()) return true; // lege nieuwe notitie
-    const gelukt = await opslaan({ title: titel.value.trim() || 'Zonder titel', body: tekst.value.replace(/\s+$/, '') });
+    const gelukt = await opslaan({ title: titel.value.trim(), body: tekst.value.replace(/\s+$/, '') });
     if (gelukt) {
       laatst = huidig;
       bewaard = true;
-      status.textContent = '  ·  Bewaard';
+      status.textContent = '  ·  ' + t('Bewaard');
     }
     return gelukt;
   }
@@ -1123,20 +1443,20 @@ function openNotitieScherm({ note, opslaan, verwijder, kiesMap = null, mapNaam =
   tekst.addEventListener('input', () => { groei(); wijziging(); });
   titel.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tekst.focus(); } });
 
-  const klaar = el('button', { className: 'back', textContent: '← Klaar', onclick: () => sluitNotitieScherm(true) });
+  const klaar = el('button', { className: 'back', textContent: t('← Klaar'), onclick: () => sluitNotitieScherm(true) });
   const balk = el('div', { className: 'notitie-balk' }, klaar);
 
   if (kiesMap) {
-    balk.append(icoonKnop('📁', 'Aan map koppelen', async () => {
+    balk.append(icoonKnop('📁', t('Aan map koppelen'), async () => {
         await bewaar();
-        if (!bewaard) { meld('Schrijf eerst iets voordat je de notitie aan een map koppelt.'); return; }
+        if (!bewaard) { meld(t('Schrijf eerst iets voordat je de notitie aan een map koppelt.')); return; }
         const naam = await kiesMap();
         if (naam === null) return;
         label.textContent = '📁 ' + naam;
         label.hidden = !naam;
     }));
   }
-  balk.append(icoonKnop('🗑️', 'Verwijderen', async () => {
+  balk.append(icoonKnop('🗑️', t('Verwijderen'), async () => {
     clearTimeout(timer);
     if (!bewaard) { sluitNotitieScherm(false); return; }
     if (await verwijder()) sluitNotitieScherm(false);
@@ -1177,18 +1497,18 @@ document.addEventListener('keydown', e => {
 async function kiesMapVoorNotitie(note) {
   const mappen = alleMappen();
   if (!mappen.length) {
-    meld('Maak eerst een map aan in Mijn Memoaris.');
+    meld(t('Maak eerst een map aan in Mijn Memoaris.'));
     return null;
   }
-  const keuze = await kiesUit('Bij welke map hoort dit verhaal?', [
+  const keuze = await kiesUit(t('Bij welke map hoort dit verhaal?'), [
     ...mappen.map(map => ({ label: (map.id === note.folderId ? '✓ ' : '📁 ') + map.naam, waarde: map.id })),
-    ...(note.folderId ? [{ label: 'Bij geen enkele map', waarde: 'geen' }] : [])
+    ...(note.folderId ? [{ label: t('Bij geen enkele map'), waarde: 'geen' }] : [])
   ]);
   if (!keuze) return null;
   if (keuze === 'geen') delete note.folderId;
   else note.folderId = keuze;
   persist();
-  toast(keuze === 'geen' ? 'Losgekoppeld van de map' : 'Gekoppeld aan ' + mapNaamVan(keuze));
+  toast(keuze === 'geen' ? t('Losgekoppeld van de map') : t('Gekoppeld aan {naam}', { naam: mapNaamVan(keuze) }));
   return mapNaamVan(note.folderId);
 }
 
@@ -1212,14 +1532,14 @@ function openGewoneNotitie(note, vernieuw, nieuw = false) {
       return naam;
     },
     verwijder: async () => {
-      const ok = await bevestig('Deze notitie wordt definitief verwijderd.', {
-        titel: 'Notitie verwijderen?', ok: 'Verwijderen', gevaar: true
+      const ok = await bevestig(t('Deze notitie wordt definitief verwijderd.'), {
+        titel: t('Notitie verwijderen?'), ok: t('Verwijderen'), gevaar: true
       });
       if (!ok) return false;
       data.notes = data.notes.filter(n => n.id !== note.id);
       persist();
       vernieuw();
-      toast('Notitie verwijderd');
+      toast(t('Notitie verwijderd'));
       return true;
     }
   });
@@ -1235,7 +1555,7 @@ function renderNotes() {
   lijst.replaceChildren();
 
   if (!data.notes.length) {
-    lijst.append(el('p', { className: 'leeg', textContent: 'Nog geen notities. Tik op “+ Nieuwe notitie” om je eerste verhaal te schrijven.' }));
+    lijst.append(el('p', { className: 'leeg', textContent: t('Nog geen notities. Tik op “+ Nieuwe notitie” om je eerste verhaal te schrijven.') }));
     return;
   }
 
@@ -1257,7 +1577,7 @@ function renderVerhalen() {
 
   const verhalen = data.notes.filter(note => note.folderId === mapId);
   if (!verhalen.length) {
-    lijst.append(el('p', { className: 'muted', textContent: 'Nog geen verhalen bij deze map. Schrijf er een, of koppel een bestaande notitie via Notes.' }));
+    lijst.append(el('p', { className: 'muted', textContent: t('Nog geen verhalen bij deze map. Schrijf er een, of koppel een bestaande notitie via Notes.') }));
     return;
   }
 
@@ -1298,8 +1618,8 @@ async function toonMedia(event) {
 
   laadFotos();
   const gelukt = bestanden.length - mislukt;
-  if (gelukt) toast(gelukt === 1 ? '1 herinnering toegevoegd' : gelukt + ' herinneringen toegevoegd');
-  if (mislukt) meld(mislukt + ' bestand(en) konden niet worden opgeslagen.');
+  if (gelukt) toast(gelukt === 1 ? t('1 herinnering toegevoegd') : t('{n} herinneringen toegevoegd', { n: gelukt }));
+  if (mislukt) meld(t('{n} bestand(en) konden niet worden opgeslagen.', { n: mislukt }));
 }
 
 document.getElementById('galleryInput').addEventListener('change', toonMedia);
@@ -1316,7 +1636,7 @@ async function laadFotos() {
     media = await alleMedia();
   } catch (fout) {
     console.error(fout);
-    meld('Opgeslagen foto’s konden niet worden geladen.');
+    meld(t('Opgeslagen foto’s konden niet worden geladen.'));
     return;
   }
 
@@ -1337,7 +1657,7 @@ async function laadFotos() {
 
   document.getElementById('rasterKop').hidden = hier.length === 0;
   document.getElementById('aantalHier').textContent =
-    hier.length === 1 ? '1 herinnering' : hier.length + ' herinneringen';
+    hier.length === 1 ? t('1 herinnering') : t('{n} herinneringen', { n: hier.length });
 
   hier.forEach(foto => {
     const url = maakUrl(foto.bestand);
@@ -1354,7 +1674,7 @@ async function laadFotos() {
 function maakTegel(foto, url, onclick) {
   const isVideo = foto.bestand.type.startsWith('video/');
   const tegel = el('button', { className: 'tegel' + (isVideo ? ' video' : ''), onclick });
-  tegel.setAttribute('aria-label', foto.bijschrift || (isVideo ? 'Video' : 'Foto'));
+  tegel.setAttribute('aria-label', foto.bijschrift || (isVideo ? t('Video') : t('Foto')));
 
   const element = el(isVideo ? 'video' : 'img', { src: url });
   if (isVideo) {
@@ -1371,13 +1691,13 @@ function maakTegel(foto, url, onclick) {
 
 /* ===================== Kiezen van een map ===================== */
 async function kiesDoelMap(huidigeMapId) {
-  const opties = [{ id: 'home', naam: 'Mijn Memoaris (hoofdmap)' }, ...alleMappen()]
+  const opties = [{ id: 'home', naam: t('Mijn Memoaris (hoofdmap)') }, ...alleMappen()]
     .filter(map => map.id !== huidigeMapId);
   if (!opties.length) {
-    meld('Maak eerst een map aan om naartoe te verplaatsen.');
+    meld(t('Maak eerst een map aan om naartoe te verplaatsen.'));
     return null;
   }
-  return kiesUit('Verplaatsen naar…', opties.map(map => ({ label: '📁 ' + map.naam, waarde: map })));
+  return kiesUit(t('Verplaatsen naar…'), opties.map(map => ({ label: '📁 ' + map.naam, waarde: map })));
 }
 
 /* ===================== Delen ===================== */
@@ -1395,7 +1715,7 @@ function maakDeelBestand(foto) {
 async function deelHerinneringen(fotos, tekst = '') {
   const bestanden = fotos.map(maakDeelBestand);
   if (!kanDelen() || !navigator.canShare({ files: bestanden })) {
-    meld('Delen van foto’s wordt op dit toestel of in deze browser niet ondersteund.');
+    meld(t('Delen van foto’s wordt op dit toestel of in deze browser niet ondersteund.'));
     return false;
   }
   try {
@@ -1404,7 +1724,7 @@ async function deelHerinneringen(fotos, tekst = '') {
   } catch (fout) {
     if (fout.name !== 'AbortError') {
       console.error(fout);
-      meld('Delen is niet gelukt. Probeer minder bestanden tegelijk.');
+      meld(t('Delen is niet gelukt. Probeer minder bestanden tegelijk.'));
     }
     return false;
   }
@@ -1423,7 +1743,7 @@ function startSelectie() {
   selectieModus = true;
   geselecteerd.clear();
   document.body.classList.add('selecteren');
-  document.getElementById('selecteerKnop').textContent = 'Klaar';
+  document.getElementById('selecteerKnop').textContent = t('Klaar');
   document.querySelectorAll('#mediaPreview .tegel').forEach(tegel => tegel.classList.add('kiesbaar'));
   werkSelectieBalkBij();
 }
@@ -1433,7 +1753,7 @@ function stopSelectie() {
   geselecteerd.clear();
   document.body.classList.remove('selecteren');
   const knop = document.getElementById('selecteerKnop');
-  if (knop) knop.textContent = 'Selecteren';
+  if (knop) knop.textContent = t('Selecteren');
   document.querySelectorAll('#mediaPreview .tegel').forEach(tegel => tegel.classList.remove('kiesbaar', 'gekozen'));
   const balk = document.getElementById('selectieBalk');
   if (balk) balk.hidden = true;
@@ -1451,7 +1771,7 @@ function werkSelectieBalkBij() {
   balk.hidden = !selectieModus;
   const aantal = geselecteerd.size;
   document.getElementById('selectieTelling').textContent =
-    aantal === 0 ? 'Tik op foto’s om ze te kiezen' : aantal + ' geselecteerd';
+    aantal === 0 ? t('Tik op foto’s om ze te kiezen') : t('{n} geselecteerd', { n: aantal });
   balk.querySelectorAll('.knop').forEach(knop => { knop.disabled = aantal === 0; });
   document.getElementById('selectieDelen').hidden = !kanDelen();
 }
@@ -1465,19 +1785,21 @@ async function verplaatsSelectie() {
     await metStore('fotos', 'readwrite', s => { fotos.forEach(foto => s.put({ ...foto, folderId: doel.id })); });
     stopSelectie();
     laadFotos();
-    toast(fotos.length + (fotos.length === 1 ? ' herinnering' : ' herinneringen') + ' verplaatst naar ' + doel.naam);
+    toast(fotos.length === 1
+      ? t('1 herinnering verplaatst naar {naam}', { naam: doel.naam })
+      : t('{n} herinneringen verplaatst naar {naam}', { n: fotos.length, naam: doel.naam }));
   } catch (fout) {
     console.error(fout);
-    meld('Verplaatsen is niet gelukt.');
+    meld(t('Verplaatsen is niet gelukt.'));
   }
 }
 
 async function verwijderSelectie() {
   const fotos = [...geselecteerd.values()];
   if (!fotos.length) return;
-  const ok = await bevestig('Ze gaan naar de prullenbak, waar je ze nog kunt terughalen.', {
-    titel: fotos.length + (fotos.length === 1 ? ' herinnering verwijderen?' : ' herinneringen verwijderen?'),
-    ok: 'Verwijderen', gevaar: true
+  const ok = await bevestig(t('Ze gaan naar de prullenbak, waar je ze nog kunt terughalen.'), {
+    titel: fotos.length === 1 ? t('1 herinnering verwijderen?') : t('{n} herinneringen verwijderen?', { n: fotos.length }),
+    ok: t('Verwijderen'), gevaar: true
   });
   if (!ok) return;
   try {
@@ -1485,10 +1807,10 @@ async function verwijderSelectie() {
     await metStore('fotos', 'readwrite', s => { fotos.forEach(foto => s.put({ ...foto, verwijderdOp: nu })); });
     stopSelectie();
     laadFotos();
-    toast('Naar de prullenbak verplaatst');
+    toast(t('Naar de prullenbak verplaatst'));
   } catch (fout) {
     console.error(fout);
-    meld('Verwijderen is niet gelukt.');
+    meld(t('Verwijderen is niet gelukt.'));
   }
 }
 
@@ -1554,22 +1876,22 @@ async function zoek() {
   ruimUrlsOp();
 
   if (!mappen.length && !notities.length && !media.length) {
-    resultaten.append(el('p', { className: 'leeg', textContent: 'Niets gevonden voor “' + veld.value.trim() + '”.' }));
+    resultaten.append(el('p', { className: 'leeg', textContent: t('Niets gevonden voor “{q}”.', { q: veld.value.trim() }) }));
     return;
   }
 
   if (mappen.length) {
-    resultaten.append(el('h3', { textContent: '📁 Mappen' }));
+    resultaten.append(el('h3', { textContent: t('📁 Mappen') }));
     mappen.forEach(map => resultaten.append(el('button', { className: 'card', onclick: () => openMap(map.id) },
       el('span', { className: 'symbol', textContent: '📁' }),
       el('span', {},
         el('h2', { textContent: map.naam.split(' / ').pop() }),
-        el('p', { textContent: map.naam.includes(' / ') ? map.naam : 'Map in Mijn Memoaris' }))
+        el('p', { textContent: map.naam.includes(' / ') ? map.naam : t('Map in Mijn Memoaris') }))
     )));
   }
 
   if (media.length) {
-    resultaten.append(el('h3', { textContent: '🖼️ Foto’s en video’s' }));
+    resultaten.append(el('h3', { textContent: t('🖼️ Foto’s en video’s') }));
     const raster = el('div', { className: 'raster' });
     media.forEach(foto => {
       const url = maakUrl(foto.bestand);
@@ -1579,7 +1901,7 @@ async function zoek() {
   }
 
   if (notities.length) {
-    resultaten.append(el('h3', { textContent: '📝 Notities en verhalen' }));
+    resultaten.append(el('h3', { textContent: t('📝 Notities en verhalen') }));
     notities.forEach(note => resultaten.append(notitieKaart(note, {
       mapNaam: mapNaamVan(note.folderId),
       onclick: () => openGewoneNotitie(note, zoek)
@@ -1724,7 +2046,7 @@ async function wijzigPrivate(wijziging) {
   } catch (fout) {
     console.error(fout);
     privateNotities = vorige;
-    meld('Opslaan is niet gelukt.');
+    meld(t('Opslaan is niet gelukt.'));
     return false;
   }
 }
@@ -1780,7 +2102,7 @@ async function voegPrivefotosToe(event) {
   privateKiestBestand = false;
 
   if (!privateSleutel) {
-    meld('Private is vergrendeld. Ontgrendel en probeer het opnieuw.');
+    meld(t('Private is vergrendeld. Ontgrendel en probeer het opnieuw.'));
     renderPrivate();
     return;
   }
@@ -1800,8 +2122,8 @@ async function voegPrivefotosToe(event) {
 
   renderPrivate();
   const gelukt = bestanden.length - mislukt;
-  if (gelukt) toast(gelukt === 1 ? '1 privéfoto versleuteld bewaard' : gelukt + ' privéfoto’s versleuteld bewaard');
-  if (mislukt) meld(mislukt + ' bestand(en) konden niet worden opgeslagen.');
+  if (gelukt) toast(gelukt === 1 ? t('1 privéfoto versleuteld bewaard') : t('{n} privéfoto’s versleuteld bewaard', { n: gelukt }));
+  if (mislukt) meld(t('{n} bestand(en) konden niet worden opgeslagen.', { n: mislukt }));
 }
 
 async function laadPrivefotos(galerij) {
@@ -1812,7 +2134,7 @@ async function laadPrivefotos(galerij) {
     items = await metStore('privefotos', 'readonly', s => s.getAll());
   } catch (fout) {
     console.error(fout);
-    galerij.textContent = 'Privéfoto’s laden is niet gelukt.';
+    galerij.textContent = t('Privéfoto’s laden is niet gelukt.');
     return;
   }
 
@@ -1820,7 +2142,7 @@ async function laadPrivefotos(galerij) {
   ruimPrivateUrlsOp();
 
   if (!items.length) {
-    galerij.after(el('p', { className: 'leeg', textContent: 'Nog geen privéfoto’s.' }));
+    galerij.after(el('p', { className: 'leeg', textContent: t('Nog geen privéfoto’s.') }));
     return;
   }
 
@@ -1842,7 +2164,7 @@ async function laadPrivefotos(galerij) {
       className: 'tegel' + (isVideo ? ' video' : ''),
       onclick: () => openPriveViewer(item, url, isVideo)
     });
-    tegel.setAttribute('aria-label', isVideo ? 'Privévideo' : 'Privéfoto');
+    tegel.setAttribute('aria-label', isVideo ? t('Privévideo') : t('Privéfoto'));
     const element = el(isVideo ? 'video' : 'img', { src: url });
     if (isVideo) {
       element.muted = true;
@@ -1861,21 +2183,21 @@ function openPriveViewer(item, url, isVideo) {
     url, isVideo,
     datum: item.datum,
     acties: [{
-      label: '🗑️ Definitief verwijderen',
+      label: t('🗑️ Definitief verwijderen'),
       soort: 'gevaar',
       onclick: async () => {
-        const ok = await bevestig('Privéfoto’s gaan niet naar de prullenbak. Dit kan niet ongedaan worden gemaakt.', {
-          titel: 'Definitief verwijderen?', ok: 'Verwijderen', gevaar: true
+        const ok = await bevestig(t('Privéfoto’s gaan niet naar de prullenbak. Dit kan niet ongedaan worden gemaakt.'), {
+          titel: t('Definitief verwijderen?'), ok: t('Verwijderen'), gevaar: true
         });
         if (!ok || !privateSleutel) return;
         try {
           await metStore('privefotos', 'readwrite', s => s.delete(item.id));
           sluitViewer();
           renderPrivate();
-          toast('Definitief verwijderd');
+          toast(t('Definitief verwijderd'));
         } catch (fout) {
           console.error(fout);
-          meld('Verwijderen is niet gelukt.');
+          meld(t('Verwijderen is niet gelukt.'));
         }
       }
     }]
@@ -1903,7 +2225,7 @@ function privateTerug() {
 }
 
 function vergrendelKnop() {
-  return el('button', { className: 'knop zacht', textContent: '🔒 Vergrendelen', onclick: vergrendelEnToon });
+  return el('button', { className: 'knop zacht', textContent: t('🔒 Vergrendelen'), onclick: vergrendelEnToon });
 }
 
 function menuKaart(symbool, titel, uitleg, onclick) {
@@ -1920,14 +2242,14 @@ function renderPrivate() {
   if (!window.crypto || !crypto.subtle) {
     doos.append(el('p', {
       className: 'waarschuwing',
-      textContent: 'De privéruimte werkt alleen als de app via een https-adres geopend is.'
+      textContent: t('De privéruimte werkt alleen als de app via een https-adres geopend is.')
     }));
     return;
   }
 
-  const titels = { menu: '🔒 Private', fotos: '🖼️ Privéfoto’s', notities: '📝 Privénotities' };
+  const titels = { menu: t('🔒 Private'), fotos: t('🖼️ Privéfoto’s'), notities: t('📝 Privénotities') };
   const ontgrendeld = leesPrivateKluis() && privateSleutel;
-  document.getElementById('privateTitel').textContent = ontgrendeld ? titels[privateWeergave] : '🔒 Private';
+  document.getElementById('privateTitel').textContent = ontgrendeld ? titels[privateWeergave] : t('🔒 Private');
 
   if (!leesPrivateKluis()) return toonPinInstellen(doos);
   if (!privateSleutel) return toonPinInvoer(doos);
@@ -1938,52 +2260,52 @@ function renderPrivate() {
 }
 
 function toonPinInstellen(doos) {
-  const pin1 = pinVeld('Kies een pincode van 6 cijfers');
-  const pin2 = pinVeld('Herhaal je pincode');
+  const pin1 = pinVeld(t('Kies een pincode van 6 cijfers'));
+  const pin2 = pinVeld(t('Herhaal je pincode'));
   const melding = el('p', { className: 'muted' });
-  const knop = el('button', { className: 'knop', textContent: 'Pincode instellen' });
+  const knop = el('button', { className: 'knop', textContent: t('Pincode instellen') });
 
   knop.onclick = async () => {
-    if (!/^\d{6}$/.test(pin1.value)) { melding.textContent = 'Gebruik precies 6 cijfers.'; return; }
-    if (pin1.value !== pin2.value) { melding.textContent = 'De pincodes zijn niet gelijk.'; return; }
+    if (!/^\d{6}$/.test(pin1.value)) { melding.textContent = t('Gebruik precies 6 cijfers.'); return; }
+    if (pin1.value !== pin2.value) { melding.textContent = t('De pincodes zijn niet gelijk.'); return; }
 
     knop.disabled = true;
-    melding.textContent = 'Bezig met beveiligen…';
+    melding.textContent = t('Bezig met beveiligen…');
     try {
       await stelPinIn(pin1.value);
       resetPogingen();
       startAutoSlot();
       renderPrivate();
-      toast('Je privéruimte is klaar');
+      toast(t('Je privéruimte is klaar'));
     } catch (fout) {
       console.error(fout);
       knop.disabled = false;
-      melding.textContent = 'Instellen is niet gelukt.';
+      melding.textContent = t('Instellen is niet gelukt.');
     }
   };
 
   doos.append(
-    el('p', { textContent: 'Stel een pincode in voor je privéruimte. Alles wat je hier bewaart, wordt versleuteld met deze code.' }),
-    el('p', { className: 'waarschuwing', textContent: 'Let op: vergeet je je pincode, dan kan niemand je privénotities en -foto’s terughalen.' }),
+    el('p', { textContent: t('Stel een pincode in voor je privéruimte. Alles wat je hier bewaart, wordt versleuteld met deze code.') }),
+    el('p', { className: 'waarschuwing', textContent: t('Let op: vergeet je je pincode, dan kan niemand je privénotities en -foto’s terughalen.') }),
     pin1, pin2, knop, melding
   );
 }
 
 function toonPinInvoer(doos) {
-  const pin = pinVeld('Pincode');
+  const pin = pinVeld(t('Pincode'));
   const melding = el('p', { className: 'muted' });
-  const knop = el('button', { className: 'knop', textContent: 'Ontgrendelen' });
+  const knop = el('button', { className: 'knop', textContent: t('Ontgrendelen') });
 
   const probeer = async () => {
     const wacht = resterendeBlokkade();
     if (wacht > 0) {
-      melding.textContent = 'Te veel pogingen. Probeer het over ' + Math.ceil(wacht / 1000) + ' seconden opnieuw.';
+      melding.textContent = t('Te veel pogingen. Probeer het over {s} seconden opnieuw.', { s: Math.ceil(wacht / 1000) });
       return;
     }
-    if (!/^\d{6}$/.test(pin.value)) { melding.textContent = 'Vul je 6 cijfers in.'; return; }
+    if (!/^\d{6}$/.test(pin.value)) { melding.textContent = t('Vul je 6 cijfers in.'); return; }
 
     knop.disabled = true;
-    melding.textContent = 'Controleren…';
+    melding.textContent = t('Controleren…');
 
     let gelukt = false;
     try { gelukt = await ontgrendel(pin.value); }
@@ -2001,46 +2323,45 @@ function toonPinInvoer(doos) {
     knop.disabled = false;
     const nieuweWacht = resterendeBlokkade();
     melding.textContent = nieuweWacht > 0
-      ? 'Onjuiste pincode. Wacht ' + Math.ceil(nieuweWacht / 1000) + ' seconden.'
-      : 'Onjuiste pincode.';
+      ? t('Onjuiste pincode. Wacht {s} seconden.', { s: Math.ceil(nieuweWacht / 1000) })
+      : t('Onjuiste pincode.');
   };
 
   knop.onclick = probeer;
   pin.onkeydown = e => { if (e.key === 'Enter') probeer(); };
 
-  const vergeten = el('button', { className: 'back', textContent: 'Pincode vergeten?' });
+  const vergeten = el('button', { className: 'back', textContent: t('Pincode vergeten?') });
   vergeten.onclick = async () => {
     const ok = await bevestig(
-      'Zonder je pincode kunnen je privénotities en -foto’s niet worden teruggehaald. ' +
-      'Je kunt de privéruimte leegmaken en een nieuwe pincode instellen, maar alles in Private wordt dan definitief verwijderd.',
-      { titel: 'Pincode vergeten?', ok: 'Leegmaken', gevaar: true }
+      t('Zonder je pincode kunnen je privénotities en -foto’s niet worden teruggehaald. Je kunt de privéruimte leegmaken en een nieuwe pincode instellen, maar alles in Private wordt dan definitief verwijderd.'),
+      { titel: t('Pincode vergeten?'), ok: t('Leegmaken'), gevaar: true }
     );
     if (!ok) return;
-    const bevestiging = await vraagTekst('Weet je het zeker?', {
-      tekst: 'Typ WISSEN om alles in Private definitief te verwijderen.',
-      placeholder: 'WISSEN',
-      ok: 'Verwijderen'
+    const bevestiging = await vraagTekst(t('Weet je het zeker?'), {
+      tekst: t('Typ {woord} om alles in Private definitief te verwijderen.', { woord: t('WISSEN') }),
+      placeholder: t('WISSEN'),
+      ok: t('Verwijderen')
     });
     if (bevestiging === null) return;
-    if (bevestiging.trim().toUpperCase() !== 'WISSEN') {
-      meld('Er is niets verwijderd.');
+    if (bevestiging.trim().toUpperCase() !== t('WISSEN')) {
+      meld(t('Er is niets verwijderd.'));
       return;
     }
     try {
       await metStore('privefotos', 'readwrite', s => s.clear());
     } catch (fout) {
       console.error(fout);
-      meld('Wissen is niet gelukt.');
+      meld(t('Wissen is niet gelukt.'));
       return;
     }
     localStorage.removeItem(PRIVATE_KEY);
     resetPogingen();
     renderPrivate();
-    toast('Private is leeggemaakt');
+    toast(t('Private is leeggemaakt'));
   };
 
   doos.append(
-    el('p', { textContent: 'Voer je pincode in om je privéruimte te openen.' }),
+    el('p', { textContent: t('Voer je pincode in om je privéruimte te openen.') }),
     pin, knop, melding, vergeten
   );
   setTimeout(() => pin.focus(), 50);
@@ -2049,9 +2370,9 @@ function toonPinInvoer(doos) {
 function toonPrivateMenu(doos) {
   const aantal = privateNotities.length;
   doos.append(
-    el('p', { className: 'muted', textContent: 'Ontgrendeld. Vergrendelt automatisch na 2 minuten zonder activiteit.' }),
-    menuKaart('🖼️', 'Privéfoto’s', 'Foto’s en video’s, versleuteld bewaard', () => openPrivateWeergave('fotos')),
-    menuKaart('📝', 'Privénotities', aantal === 1 ? '1 notitie' : aantal + ' notities', () => openPrivateWeergave('notities')),
+    el('p', { className: 'muted', textContent: t('Ontgrendeld. Vergrendelt automatisch na 2 minuten zonder activiteit.') }),
+    menuKaart('🖼️', t('Privéfoto’s'), t('Foto’s en video’s, versleuteld bewaard'), () => openPrivateWeergave('fotos')),
+    menuKaart('📝', t('Privénotities'), aantal === 1 ? t('1 notitie') : t('{n} notities', { n: aantal }), () => openPrivateWeergave('notities')),
     vergrendelKnop()
   );
 }
@@ -2068,8 +2389,8 @@ function toonPrivateFotos(doos) {
 
   doos.append(
     el('div', { className: 'knoppenrij' },
-      el('button', { className: 'knop', textContent: '🖼️ Foto’s toevoegen', onclick: () => kiesPriveBestand(galerijInput) }),
-      el('button', { className: 'knop', textContent: '📷 Camera', onclick: () => kiesPriveBestand(cameraInput) })
+      el('button', { className: 'knop', textContent: t('🖼️ Foto’s toevoegen'), onclick: () => kiesPriveBestand(galerijInput) }),
+      el('button', { className: 'knop', textContent: t('📷 Camera'), onclick: () => kiesPriveBestand(cameraInput) })
     ),
     galerijInput, cameraInput,
     galerij,
@@ -2092,13 +2413,13 @@ function openPriveNotitie(note, nieuw = false) {
       return ok;
     },
     verwijder: async () => {
-      const ok = await bevestig('Deze privénotitie wordt definitief verwijderd.', {
-        titel: 'Notitie verwijderen?', ok: 'Verwijderen', gevaar: true
+      const ok = await bevestig(t('Deze privénotitie wordt definitief verwijderd.'), {
+        titel: t('Notitie verwijderen?'), ok: t('Verwijderen'), gevaar: true
       });
       if (!ok || !privateSleutel) return false;
       if (!(await wijzigPrivate(l => l.filter(n => n.id !== note.id)))) return false;
       renderPrivate();
-      toast('Privénotitie verwijderd');
+      toast(t('Privénotitie verwijderd'));
       return true;
     }
   });
@@ -2106,13 +2427,13 @@ function openPriveNotitie(note, nieuw = false) {
 
 function toonPrivateNotities(doos) {
   const nieuw = el('button', {
-    className: 'knop', textContent: '+ Nieuwe privénotitie',
+    className: 'knop', textContent: t('+ Nieuwe privénotitie'),
     onclick: () => openPriveNotitie({ id: nieuwId(), title: '', body: '', date: vandaag() }, true)
   });
 
   const lijst = el('div');
   if (!privateNotities.length) {
-    lijst.append(el('p', { className: 'leeg', textContent: 'Nog geen privénotities.' }));
+    lijst.append(el('p', { className: 'leeg', textContent: t('Nog geen privénotities.') }));
   }
   privateNotities.forEach(note => lijst.append(notitieKaart(note, { onclick: () => openPriveNotitie(note) })));
 
@@ -2161,7 +2482,7 @@ function formatGrootte(bytes) {
   if (!bytes) return '0 MB';
   if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + ' kB';
   if (bytes < 1024 * 1024 * 1024) return Math.round(bytes / (1024 * 1024)) + ' MB';
-  return (bytes / (1024 * 1024 * 1024)).toFixed(1).replace('.', ',') + ' GB';
+  return (bytes / (1024 * 1024 * 1024)).toLocaleString(LOCALES[taal], { maximumFractionDigits: 1 }) + ' GB';
 }
 
 function leesGetal(sleutel) {
@@ -2206,7 +2527,7 @@ async function maakBackupDeel(inhoud, { backupId, datum, deel, aantal, kluis }) 
   }
   stukken.push('}');
 
-  const naam = 'memoaris-backup-' + datum.slice(0, 10) + (aantal > 1 ? '-deel-' + deel + '-van-' + aantal : '') + '.json';
+  const naam = 'memoaris-backup-' + datum.slice(0, 10) + (aantal > 1 ? t('-deel-{d}-van-{n}', { d: deel, n: aantal }) : '') + '.json';
   return { naam, blob: new Blob(stukken, { type: 'application/json' }) };
 }
 
@@ -2215,13 +2536,13 @@ async function downloadDelen(bestanden) {
   const gedaan = new Set();
   while (gedaan.size < bestanden.length) {
     const keuze = await toonDialoog({
-      titel: 'Back-up in ' + bestanden.length + ' delen',
-      tekst: 'Je back-up is groot en daarom in delen gesplitst. Download alle delen en bewaar ze samen op een veilige plek.',
+      titel: t('Back-up in {n} delen', { n: bestanden.length }),
+      tekst: t('Je back-up is groot en daarom in delen gesplitst. Download alle delen en bewaar ze samen op een veilige plek.'),
       keuzes: bestanden.map((bestand, i) => ({
-        label: (gedaan.has(i) ? '✓ ' : '📥 ') + 'Deel ' + (i + 1) + ' (' + formatGrootte(bestand.blob.size) + ')',
+        label: (gedaan.has(i) ? '✓ ' : '📥 ') + t('Deel {d} ({grootte})', { d: i + 1, grootte: formatGrootte(bestand.blob.size) }),
         waarde: i
       })),
-      knoppen: [{ label: gedaan.size ? 'Stoppen' : 'Annuleren', waarde: null, soort: 'zacht' }]
+      knoppen: [{ label: gedaan.size ? t('Stoppen') : t('Annuleren'), waarde: null, soort: 'zacht' }]
     });
     if (keuze === null) break;
     downloadBestand(bestanden[keuze]);
@@ -2249,7 +2570,7 @@ async function maakBackup() {
       huidig += it.grootte;
     }
 
-    toast('Back-up wordt gemaakt…');
+    toast(t('Back-up wordt gemaakt…'));
     const backupId = nieuwId();
     const datum = new Date().toISOString();
     const bestanden = [];
@@ -2262,7 +2583,7 @@ async function maakBackup() {
     else compleet = await downloadDelen(bestanden);
 
     if (!compleet) {
-      meld('Niet alle delen zijn gedownload. Een back-up is pas compleet als je alle delen hebt.', 'Back-up niet compleet');
+      meld(t('Niet alle delen zijn gedownload. Een back-up is pas compleet als je alle delen hebt.'), t('Back-up niet compleet'));
       return;
     }
 
@@ -2275,14 +2596,14 @@ async function maakBackup() {
 
     meld(
       (bestanden.length > 1
-        ? 'Alle ' + bestanden.length + ' delen zijn gedownload. Bewaar ze samen, bijvoorbeeld in één map in iCloud of Google Drive.'
-        : 'Je back-up wordt gedownload. Controleer of het bestand is opgeslagen en bewaar het op een veilige plek, bijvoorbeeld in iCloud of Google Drive.') +
-      (kluis ? '\n\nPrivate zit er versleuteld in. Je hebt je pincode nodig om het terug te zetten.' : ''),
-      'Back-up gemaakt'
+        ? t('Alle {n} delen zijn gedownload. Bewaar ze samen, bijvoorbeeld in één map in iCloud of Google Drive.', { n: bestanden.length })
+        : t('Je back-up wordt gedownload. Controleer of het bestand is opgeslagen en bewaar het op een veilige plek, bijvoorbeeld in iCloud of Google Drive.')) +
+      (kluis ? '\n\n' + t('Private zit er versleuteld in. Je hebt je pincode nodig om het terug te zetten.') : ''),
+      t('Back-up gemaakt')
     );
   } catch (fout) {
     console.error('Back-up mislukt:', fout);
-    meld('De back-up kon niet worden gemaakt. Er is niets verwijderd.');
+    meld(t('De back-up kon niet worden gemaakt. Er is niets verwijderd.'));
   }
 }
 
@@ -2301,17 +2622,17 @@ async function controleerBackupHerinnering() {
   if (!aantal && !data.notes.length && !leesPrivateKluis()) return; // nog niets om te bewaren
 
   blok.replaceChildren(
-    el('h3', { textContent: '💾 Tijd voor een back-up' }),
+    el('h3', { textContent: t('💾 Tijd voor een back-up') }),
     el('p', {
       className: 'muted',
       textContent: dagen === null
-        ? 'Je hebt nog nooit een back-up gemaakt. Zonder back-up ben je alles kwijt als je telefoon stuk of zoek raakt.'
-        : 'Je laatste back-up is ' + dagen + ' dagen geleden. Maak een nieuwe, zodat je recente herinneringen ook veilig zijn.'
+        ? t('Je hebt nog nooit een back-up gemaakt. Zonder back-up ben je alles kwijt als je telefoon stuk of zoek raakt.')
+        : t('Je laatste back-up is {n} dagen geleden. Maak een nieuwe, zodat je recente herinneringen ook veilig zijn.', { n: dagen })
     }),
-    el('button', { className: 'knop', textContent: '📥 Nu back-up maken', onclick: () => maakBackup() }),
+    el('button', { className: 'knop', textContent: t('📥 Nu back-up maken'), onclick: () => maakBackup() }),
     el('button', {
       className: 'knop zacht',
-      textContent: 'Later',
+      textContent: t('Later'),
       onclick: () => {
         try { localStorage.setItem(LATER_KEY, String(Date.now() + 3 * 86400000)); } catch (e) {}
         blok.hidden = true;
@@ -2331,24 +2652,27 @@ async function toonOpslag() {
     const media = alles.filter(foto => !foto.verwijderdOp);
     const videos = media.filter(foto => foto.bestand?.type?.startsWith('video/')).length;
     const fotos = media.length - videos;
-    regels.push('📷 ' + fotos + (fotos === 1 ? ' foto' : ' foto’s') + ', ' +
-      videos + (videos === 1 ? ' video' : ' video’s') + ', ' +
-      data.notes.length + (data.notes.length === 1 ? ' notitie' : ' notities'));
+    const aantallen = [
+      fotos === 1 ? t('1 foto') : t('{n} foto’s', { n: fotos }),
+      videos === 1 ? t('1 video') : t('{n} video’s', { n: videos }),
+      data.notes.length === 1 ? t('1 notitie') : t('{n} notities', { n: data.notes.length })
+    ];
+    regels.push('📷 ' + aantallen.join(', '));
 
     // Zelf optellen: dat is betrouwbaarder dan de schatting van de browser.
     const privefotos = leesPrivateKluis() ? await metStore('privefotos', 'readonly', s => s.getAll()) : [];
     const totaal =
       alles.reduce((som, foto) => som + (foto.bestand?.size || 0), 0) +
       privefotos.reduce((som, item) => som + (item.ct?.byteLength || 0), 0);
-    regels.push('💽 Samen ongeveer ' + formatGrootte(totaal) + (alles.length > media.length ? ' (inclusief prullenbak)' : ''));
+    regels.push(t('💽 Samen ongeveer {grootte}', { grootte: formatGrootte(totaal) }) + (alles.length > media.length ? t(' (inclusief prullenbak)') : ''));
   } catch (e) {}
 
   const laatste = leesGetal(BACKUP_KEY);
-  regels.push('💾 Laatste back-up: ' + (laatste ? formatDatum(new Date(laatste).toISOString()) : 'nog nooit'));
+  regels.push(t('💾 Laatste back-up: {datum}', { datum: laatste ? formatDatum(new Date(laatste).toISOString()) : t('nog nooit') }));
 
   try {
     if (navigator.storage && navigator.storage.persisted && !isGeinstalleerd() && !(await navigator.storage.persisted())) {
-      regels.push('⚠️ Je browser kan deze opslag wissen als je de app lang niet gebruikt. Zet Memoaris op je beginscherm en maak regelmatig een back-up.');
+      regels.push(t('⚠️ Je browser kan deze opslag wissen als je de app lang niet gebruikt. Zet Memoaris op je beginscherm en maak regelmatig een back-up.'));
     }
   } catch (e) {}
 
@@ -2367,14 +2691,14 @@ function isPriveBackupGeldig(prive) {
 }
 
 async function leesBackupVoorHerstel(bestand) {
-  if (!bestand) throw new Error('Geen bestand gekozen.');
-  if (bestand.size > 400 * 1024 * 1024) throw new Error('"' + bestand.name + '" is te groot om terug te zetten.');
+  if (!bestand) throw new Error(t('Geen bestand gekozen.'));
+  if (bestand.size > 400 * 1024 * 1024) throw new Error(t('“{naam}” is te groot om terug te zetten.', { naam: bestand.name }));
 
   let backup;
   try {
     backup = JSON.parse(await bestand.text());
   } catch (e) {
-    throw new Error('"' + bestand.name + '" is geen Memoaris-back-up.');
+    throw new Error(t('“{naam}” is geen Memoaris-back-up.', { naam: bestand.name }));
   }
 
   if (
@@ -2385,17 +2709,17 @@ async function leesBackupVoorHerstel(bestand) {
     !Array.isArray(backup.mappenEnNotities.notes) ||
     !Array.isArray(backup.media)
   ) {
-    throw new Error('Dit is geen geldige Memoaris-back-up.');
+    throw new Error(t('Dit is geen geldige Memoaris-back-up.'));
   }
 
   if (!backup.media.every(item =>
     item && typeof item.id === 'string' && typeof item.inhoud === 'string' && item.inhoud.startsWith('data:')
   )) {
-    throw new Error('De back-up bevat ongeldige foto’s of video’s.');
+    throw new Error(t('De back-up bevat ongeldige foto’s of video’s.'));
   }
 
   if (backup.prive && !isPriveBackupGeldig(backup.prive)) {
-    throw new Error('Het Private-deel van de back-up is beschadigd.');
+    throw new Error(t('Het Private-deel van de back-up is beschadigd.'));
   }
 
   return backup;
@@ -2406,7 +2730,7 @@ function controleerHerstelKoppelingen(backup) {
 
   function verzamel(mappen) {
     for (const map of mappen) {
-      if (!map || typeof map.id !== 'string') throw new Error('De back-up bevat een ongeldige map.');
+      if (!map || typeof map.id !== 'string') throw new Error(t('De back-up bevat een ongeldige map.'));
       ids.add(map.id);
       if (Array.isArray(map.children)) verzamel(map.children);
     }
@@ -2419,9 +2743,9 @@ function controleerHerstelKoppelingen(backup) {
 
 async function herstelMediaBestand(item) {
   const response = await fetch(item.inhoud);
-  if (!response.ok) throw new Error('Een foto in de back-up kan niet gelezen worden.');
+  if (!response.ok) throw new Error(t('Een foto in de back-up kan niet gelezen worden.'));
   const blob = await response.blob();
-  if (blob.size === 0) throw new Error('Een foto in de back-up is leeg.');
+  if (blob.size === 0) throw new Error(t('Een foto in de back-up is leeg.'));
   return new File([blob], item.bestandsnaam || 'herinnering', {
     type: item.bestandstype || blob.type,
     lastModified: Date.now()
@@ -2468,7 +2792,7 @@ function bereidHerstelMappenVoor(backupMappen) {
     }));
 
     for (const map of opgeslagen) {
-      if (!map || typeof map.id !== 'string') throw new Error('De back-up bevat een ongeldige map.');
+      if (!map || typeof map.id !== 'string') throw new Error(t('De back-up bevat een ongeldige map.'));
       const index = resultaat.findIndex(huidig => huidig.id === map.id);
       if (index === -1) {
         resultaat.push({ ...map, children: samenvoegen([], map.children || []) });
@@ -2490,7 +2814,7 @@ function bereidHerstelNotitiesVoor(backupNotities) {
 
   const resultaat = [...data.notes];
   for (const note of backupNotities) {
-    if (!note || typeof note !== 'object') throw new Error('De back-up bevat een ongeldige notitie.');
+    if (!note || typeof note !== 'object') throw new Error(t('De back-up bevat een ongeldige notitie.'));
     if (!resultaat.some(huidig => zelfde(huidig, note))) {
       resultaat.push({ ...note, id: note.id || nieuwId() });
     }
@@ -2503,7 +2827,7 @@ async function herstelPrive(prive) {
   const huidige = leesPrivateKluis();
 
   if (huidige && huidige.salt !== prive.kluis.salt) {
-    return 'Private is niet teruggezet, omdat er op dit toestel al een privéruimte met een andere pincode is.';
+    return t('Private is niet teruggezet, omdat er op dit toestel al een privéruimte met een andere pincode is.');
   }
 
   const bestaande = new Set(await metStore('privefotos', 'readonly', s => s.getAllKeys()));
@@ -2522,11 +2846,11 @@ async function herstelPrive(prive) {
   if (!huidige) {
     localStorage.setItem(PRIVATE_KEY, JSON.stringify(prive.kluis));
     vergrendelPrivate();
-    return 'Private is teruggezet. Open het met je oude pincode.';
+    return t('Private is teruggezet. Open het met je oude pincode.');
   }
   return nieuw.length
-    ? nieuw.length + ' privéfoto(’s) teruggezet in Private.'
-    : 'Private was al volledig.';
+    ? t('{n} privéfoto(’s) teruggezet in Private.', { n: nieuw.length })
+    : t('Private was al volledig.');
 }
 
 // Zet één back-upbestand (of één deel) terug. Alles is aanvullend: wat er al is, blijft staan.
@@ -2534,11 +2858,11 @@ async function herstelEenDeel(bestand, telling) {
   const backup = await leesBackupVoorHerstel(bestand);
 
   if (controleerHerstelKoppelingen(backup) > 0) {
-    throw new Error('Sommige foto’s in "' + bestand.name + '" horen bij een map die niet bestaat.');
+    throw new Error(t('Sommige foto’s in “{naam}” horen bij een map die niet bestaat.', { naam: bestand.name }));
   }
   const ids = new Set();
   for (const item of backup.media) {
-    if (ids.has(item.id)) throw new Error('"' + bestand.name + '" bevat dubbele foto’s.');
+    if (ids.has(item.id)) throw new Error(t('“{naam}” bevat dubbele foto’s.', { naam: bestand.name }));
     ids.add(item.id);
   }
 
@@ -2573,9 +2897,9 @@ async function herstelBackupVeilig(lijst) {
   if (!bestanden.length) return;
 
   const ok = await bevestig(
-    'Je huidige herinneringen blijven bewaard. Alles wat ontbreekt, wordt toegevoegd.' +
-    (bestanden.length > 1 ? '\n\nJe hebt ' + bestanden.length + ' bestanden gekozen. Die worden één voor één teruggezet.' : ''),
-    { titel: 'Back-up terugzetten?', ok: 'Terugzetten' }
+    t('Je huidige herinneringen blijven bewaard. Alles wat ontbreekt, wordt toegevoegd.') +
+    (bestanden.length > 1 ? '\n\n' + t('Je hebt {n} bestanden gekozen. Die worden één voor één teruggezet.', { n: bestanden.length }) : ''),
+    { titel: t('Back-up terugzetten?'), ok: t('Terugzetten') }
   );
   if (!ok) return;
 
@@ -2583,7 +2907,7 @@ async function herstelBackupVeilig(lijst) {
   let fout = null;
 
   for (let i = 0; i < bestanden.length; i++) {
-    if (bestanden.length > 1) toast('Deel ' + (i + 1) + ' van ' + bestanden.length + ' terugzetten…');
+    if (bestanden.length > 1) toast(t('Deel {d} van {n} terugzetten…', { d: i + 1, n: bestanden.length }));
     try {
       await herstelEenDeel(bestanden[i], telling);
     } catch (e) {
@@ -2596,25 +2920,25 @@ async function herstelBackupVeilig(lijst) {
   renderFolders();
 
   const regels = [
-    telling.media + ' foto’s en video’s toegevoegd.',
-    telling.notities + ' notities toegevoegd.'
+    t('{n} foto’s en video’s toegevoegd.', { n: telling.media }),
+    t('{n} notities toegevoegd.', { n: telling.notities })
   ];
   if (telling.prive) regels.push(telling.prive);
 
   const ontbreekt = [];
   for (let deel = 1; deel <= telling.aantal; deel++) if (!telling.delen.has(deel)) ontbreekt.push(deel);
   if (!fout && telling.backupId && ontbreekt.length) {
-    regels.push('Let op: deel ' + ontbreekt.join(', ') + ' van deze back-up ontbreekt nog. Zet dat deel ook terug om alles compleet te hebben.');
+    regels.push(t('Let op: deel {delen} van deze back-up ontbreekt nog. Zet dat deel ook terug om alles compleet te hebben.', { delen: ontbreekt.join(', ') }));
   }
 
   if (fout) {
     meld(
-      'Het terugzetten is gestopt: ' + fout.message +
-      '\n\nWat al was teruggezet, blijft bewaard:\n' + regels.join('\n'),
-      'Niet helemaal gelukt'
+      t('Het terugzetten is gestopt: {fout}', { fout: fout.message }) +
+      '\n\n' + t('Wat al was teruggezet, blijft bewaard:') + '\n' + regels.join('\n'),
+      t('Niet helemaal gelukt')
     );
   } else {
-    meld(regels.join('\n\n'), 'Back-up teruggezet');
+    meld(regels.join('\n\n'), t('Back-up teruggezet'));
   }
 }
 
@@ -2625,15 +2949,15 @@ function isGeinstalleerd() {
 
 function toonWelkom() {
   const stappen = [
-    { symbool: '👋', titel: 'Welkom bij Memoaris', tekst: 'Bewaar je foto’s, video’s en verhalen op één fijne plek.' },
-    { symbool: '📁', titel: 'Mappen en notities', tekst: 'Maak een map voor elke herinnering, voeg bijschriften toe en schrijf je verhalen erbij.' },
-    { symbool: '🔒', titel: 'Veilig op je telefoon', tekst: 'Alles blijft op je eigen toestel. Geheime dingen bewaar je in Private, beveiligd met een pincode. Maak regelmatig een back-up.' }
+    { symbool: '👋', titel: t('Welkom bij Memoaris'), tekst: t('Bewaar je foto’s, video’s en verhalen op één fijne plek.') },
+    { symbool: '📁', titel: t('Mappen en notities'), tekst: t('Maak een map voor elke herinnering, voeg bijschriften toe en schrijf je verhalen erbij.') },
+    { symbool: '🔒', titel: t('Veilig op je telefoon'), tekst: t('Alles blijft op je eigen toestel. Geheime dingen bewaar je in Private, beveiligd met een pincode. Maak regelmatig een back-up.') }
   ];
   if (!isGeinstalleerd()) {
     stappen.push({
       symbool: '📲',
-      titel: 'Zet Memoaris op je beginscherm',
-      tekst: 'iPhone: tik in Safari op Delen en kies “Zet op beginscherm”.\nAndroid: tik in Chrome op ⋮ en kies “App installeren”.'
+      titel: t('Zet Memoaris op je beginscherm'),
+      tekst: t('iPhone: tik in Safari op Delen en kies “Zet op beginscherm”.\nAndroid: tik in Chrome op ⋮ en kies “App installeren”.')
     });
   }
 
@@ -2662,10 +2986,10 @@ function toonWelkom() {
       el('div', { className: 'stippen' }, ...stappen.map((_, i) => el('span', { className: i === stap ? 'actief' : '' }))),
       el('button', {
         className: 'knop',
-        textContent: laatste ? 'Aan de slag' : 'Volgende',
+        textContent: laatste ? t('Aan de slag') : t('Volgende'),
         onclick: () => { if (laatste) klaar(); else { stap++; teken(); } }
       }),
-      laatste ? '' : el('button', { className: 'back', textContent: 'Overslaan', onclick: klaar })
+      laatste ? '' : el('button', { className: 'back', textContent: t('Overslaan'), onclick: klaar })
     );
   }
 
@@ -2674,6 +2998,9 @@ function toonWelkom() {
 }
 
 /* ===================== Opstarten ===================== */
+vertaalPagina();
+document.getElementById('selecteerKnop').textContent = t('Selecteren');
+
 // Vraag de browser om de opslag niet automatisch te wissen.
 if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist().catch(() => {});
