@@ -148,6 +148,24 @@ body.selecteren .toast { bottom: calc(150px + env(safe-area-inset-bottom)); }
 .notitie-tekst { margin: 0; min-height: 60vh; font-size: 17px; line-height: 1.6; resize: none; }
 .notitie-titel:focus, .notitie-tekst:focus { outline: none; }
 
+/* Voettekst op het beginscherm */
+.voet { margin-top: 18px; text-align: center; color: var(--zacht); font-size: 14px; }
+.voet .link {
+  border: 0; background: none; padding: 8px 6px; color: var(--zacht); font-size: 14px;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* Over, privacy en voorwaarden */
+.document { line-height: 1.6; }
+.document h3 { margin: 24px 0 6px; }
+.document p { margin: 0 0 12px; }
+.document ul { margin: 0 0 12px; padding-left: 22px; }
+.document li { margin-bottom: 6px; }
+.document a { color: var(--primair-tekst); }
+.document a.knop { color: #fff; text-decoration: none; }
+.over-info { text-align: center; padding: 8px 0 4px; }
+.over-info p { margin: 4px 0; }
+
 /* Taalknop onderaan het beginscherm */
 .taalknop {
   display: block; margin: 8px auto 0; padding: 10px 16px; border: 0; border-radius: 999px;
@@ -368,7 +386,12 @@ textarea { min-height: 140px; resize: vertical; }
     <span class="symbol">🗑️</span>
     <span><h2 data-t>Prullenbak</h2><p data-t>Bekijk en herstel verwijderde herinneringen.</p></span>
   </button>
-  <button class="taalknop" id="taalKnop" onclick="kiesTaal()" data-t-aria aria-label="Taal wijzigen"></button>
+  <div class="voet">
+    <button class="taalknop" id="taalKnop" onclick="kiesTaal()" data-t-aria aria-label="Taal wijzigen"></button>
+    <button class="link" onclick="toonDocument('over')" data-t>Over Memoaris</button> ·
+    <button class="link" onclick="toonDocument('privacy')" data-t>Privacy</button> ·
+    <button class="link" onclick="toonDocument('voorwaarden')" data-t>Voorwaarden</button>
+  </div>
   </div>
 </section>
 
@@ -419,6 +442,12 @@ textarea { min-height: 140px; resize: vertical; }
   <p id="geenFavorieten" class="leeg" hidden data-t>Nog geen favorieten. Open een foto en tik op ♡ Favoriet om hem hier te bewaren.</p>
 </section>
 
+<section id="document" hidden>
+  <button class="back" onclick="documentTerug()" data-t>← Terug</button>
+  <h2 id="documentTitel"></h2>
+  <div id="documentInhoud" class="document"></div>
+</section>
+
 <section id="notes" hidden>
   <button class="back" onclick="show('home')" data-t>← Terug</button>
   <h2 data-t>📝 Mijn Notes</h2>
@@ -467,6 +496,14 @@ function el(tag, props = {}, ...kinderen) {
   element.append(...kinderen);
   return element;
 }
+
+/* ===================== Gegevens van de makers ===================== */
+// Vul hier jullie namen en het e-mailadres van Memoaris in. Ze verschijnen
+// automatisch op de pagina's Over Memoaris, Privacy en Voorwaarden.
+const MAKERS = '';          // bijvoorbeeld 'Azoz en Sam'
+const CONTACT_EMAIL = '';   // bijvoorbeeld 'memoaris.app@gmail.com'
+const APP_VERSIE = '1.0';
+const DOCUMENTEN_BIJGEWERKT = '2026-10-18';
 
 /* ===================== Talen ===================== */
 // Een taal toevoegen: zet hem in TALEN en LOCALES, en vertaal de lijst in VERTALINGEN.
@@ -732,7 +769,21 @@ const VERTALINGEN = {
     "Sorteren": "Sort",
     "Nieuwste eerst": "Newest first",
     "Oudste eerst": "Oldest first",
-    "Laatst toegevoegd": "Recently added"
+    "Laatst toegevoegd": "Recently added",
+    "ℹ️ Over Memoaris": "ℹ️ About Memoaris",
+    "Over Memoaris": "About Memoaris",
+    "Privacy": "Privacy",
+    "Voorwaarden": "Terms",
+    "🔒 Privacyverklaring": "🔒 Privacy policy",
+    "📄 Gebruiksvoorwaarden": "📄 Terms of use",
+    "Memoaris is een app om je foto’s, video’s en verhalen samen te bewaren, met een versleutelde privéruimte voor wat alleen van jou is.": "Memoaris is an app for keeping your photos, videos and stories together, with an encrypted private space for what’s yours alone.",
+    "Gemaakt door {makers}": "Made by {makers}",
+    "Versie {versie}": "Version {versie}",
+    "✉️ Mail ons": "✉️ Email us",
+    "Gemaakt met ❤️ in Nederland": "Made with ❤️ in the Netherlands",
+    "Bijgewerkt op {datum}": "Updated on {datum}",
+    "de makers van Memoaris": "the makers of Memoaris",
+    "het e-mailadres dat hier binnenkort staat": "the email address that will appear here soon"
   }
 };
 
@@ -3270,6 +3321,377 @@ function toonWelkom() {
   document.body.append(scherm);
 }
 
+/* ===================== Over Memoaris, privacy en voorwaarden ===================== */
+// Lange teksten per taal. Ontbreekt een taal, dan wordt Engels getoond.
+const DOCUMENTEN = {
+ "nl": {
+  "privacy": {
+   "titel": "🔒 Privacyverklaring",
+   "blokken": [
+    [
+     "p",
+     "Memoaris is gemaakt om je herinneringen privé te houden. Hier lees je welke gegevens er zijn, waar ze staan en wat wij ermee doen. Kort gezegd: wij verzamelen niets."
+    ],
+    [
+     "h3",
+     "Wie zijn wij?"
+    ],
+    [
+     "p",
+     "Memoaris wordt gemaakt door {makers} in Nederland. Je kunt ons bereiken via {email}."
+    ],
+    [
+     "h3",
+     "Welke gegevens verzamelen wij?"
+    ],
+    [
+     "p",
+     "Geen. Memoaris heeft geen accounts, geen server waar je gegevens naartoe gaan, geen advertenties en niets dat bijhoudt hoe je de app gebruikt. Wij kunnen je foto’s, video’s en notities niet zien."
+    ],
+    [
+     "h3",
+     "Wat wordt er op je toestel bewaard?"
+    ],
+    [
+     "p",
+     "Alles wat je in Memoaris zet, wordt alleen bewaard in de opslag van de browser op je eigen toestel:"
+    ],
+    [
+     "ul",
+     [
+      "Je mappen, notities, verhalen en bijschriften.",
+      "Je foto’s en video’s, met de datum waarop ze gemaakt en toegevoegd zijn.",
+      "Je instellingen, zoals taal en sortering, en de datum van je laatste back-up.",
+      "Je privéruimte (Private). Die wordt versleuteld met AES-256, met een sleutel die uit je pincode wordt gemaakt. Je pincode zelf wordt nergens bewaard."
+     ]
+    ],
+    [
+     "p",
+     "Je kunt alles verwijderen in de app zelf, of door de websitegegevens van Memoaris in je browser te wissen. Let op: dan is het echt weg, tenzij je een back-up hebt."
+    ],
+    [
+     "h3",
+     "Back-ups"
+    ],
+    [
+     "p",
+     "Een back-up is een bestand dat jij zelf downloadt en zelf bewaart, bijvoorbeeld in iCloud of Google Drive. Wij ontvangen dat bestand niet. Je privéruimte zit er versleuteld in en is alleen met je pincode te openen. Voor de plek waar jij je back-up bewaart, gelden de voorwaarden van die dienst."
+    ],
+    [
+     "h3",
+     "Delen"
+    ],
+    [
+     "p",
+     "Als je een foto of video deelt, gebruikt Memoaris het deelmenu van je telefoon. Het bestand gaat dan rechtstreeks naar de app die jij kiest, zoals WhatsApp of AirDrop. Wij zien daar niets van."
+    ],
+    [
+     "h3",
+     "Waar de app vandaan komt"
+    ],
+    [
+     "p",
+     "De app wordt geleverd via GitHub Pages, een dienst van GitHub, Inc. in de Verenigde Staten. Om de app te kunnen tonen en te beveiligen, kan GitHub technische gegevens verwerken, zoals je IP-adres. Wij krijgen die gegevens niet. Meer hierover lees je in de privacyverklaring van GitHub."
+    ],
+    [
+     "h3",
+     "Jouw rechten"
+    ],
+    [
+     "p",
+     "Volgens de privacywet (AVG) mag je je gegevens inzien, laten aanpassen of laten verwijderen. Omdat wij geen gegevens van je hebben, regel je dat allemaal zelf in de app. Heb je toch een vraag of klacht? Mail ons via {email}. Je kunt ook een klacht indienen bij de Autoriteit Persoonsgegevens."
+    ],
+    [
+     "h3",
+     "Wijzigingen"
+    ],
+    [
+     "p",
+     "Als Memoaris verandert, bijvoorbeeld door accounts of opslag in de cloud, passen we deze verklaring aan voordat dat gebeurt. Bovenaan zie je wanneer hij voor het laatst is bijgewerkt."
+    ]
+   ]
+  },
+  "voorwaarden": {
+   "titel": "📄 Gebruiksvoorwaarden",
+   "blokken": [
+    [
+     "p",
+     "Fijn dat je Memoaris gebruikt. Door de app te gebruiken, ga je akkoord met deze voorwaarden. We houden ze kort en duidelijk."
+    ],
+    [
+     "h3",
+     "De app"
+    ],
+    [
+     "p",
+     "Memoaris is op dit moment gratis te gebruiken. We doen ons best om de app goed en veilig te laten werken, maar we kunnen niet beloven dat hij altijd zonder fouten werkt of altijd beschikbaar is."
+    ],
+    [
+     "h3",
+     "Jouw herinneringen"
+    ],
+    [
+     "p",
+     "Alles wat je in Memoaris zet, blijft van jou. Het staat alleen op je eigen toestel, dus je bent er zelf verantwoordelijk voor:"
+    ],
+    [
+     "ul",
+     [
+      "Maak regelmatig een back-up en bewaar die op een veilige plek.",
+      "Onthoud de pincode van Private goed. Wij kunnen hem niet terughalen, en zonder pincode is je privéruimte niet meer te openen.",
+      "Wis je de websitegegevens van je browser of raak je je toestel kwijt, dan zijn je herinneringen weg als je geen back-up hebt."
+     ]
+    ],
+    [
+     "h3",
+     "Netjes gebruiken"
+    ],
+    [
+     "p",
+     "Gebruik Memoaris niet voor inhoud die in strijd is met de wet. Wat je met anderen deelt, deel je op eigen verantwoordelijkheid."
+    ],
+    [
+     "h3",
+     "Aansprakelijkheid"
+    ],
+    [
+     "p",
+     "Voor zover de wet dat toestaat, zijn wij niet aansprakelijk voor schade door het gebruik van Memoaris, zoals het verlies van foto’s, video’s of notities."
+    ],
+    [
+     "h3",
+     "Premium"
+    ],
+    [
+     "p",
+     "Mogelijk komt er later een betaalde versie met extra functies. Voordat je daarvoor iets betaalt, lees je precies wat je krijgt en wat het kost."
+    ],
+    [
+     "h3",
+     "Wijzigingen en recht"
+    ],
+    [
+     "p",
+     "We kunnen deze voorwaarden aanpassen als de app verandert. Op deze voorwaarden is Nederlands recht van toepassing. Vragen? Mail ons via {email}."
+    ]
+   ]
+  }
+ },
+ "en": {
+  "privacy": {
+   "titel": "🔒 Privacy policy",
+   "blokken": [
+    [
+     "p",
+     "Memoaris is made to keep your memories private. Here you can read what data there is, where it is stored and what we do with it. In short: we collect nothing."
+    ],
+    [
+     "h3",
+     "Who are we?"
+    ],
+    [
+     "p",
+     "Memoaris is made by {makers} in the Netherlands. You can reach us at {email}."
+    ],
+    [
+     "h3",
+     "What data do we collect?"
+    ],
+    [
+     "p",
+     "None. Memoaris has no accounts, no server your data is sent to, no ads and nothing that tracks how you use the app. We cannot see your photos, videos or notes."
+    ],
+    [
+     "h3",
+     "What is stored on your device?"
+    ],
+    [
+     "p",
+     "Everything you put in Memoaris is stored only in your browser’s storage on your own device:"
+    ],
+    [
+     "ul",
+     [
+      "Your folders, notes, stories and captions.",
+      "Your photos and videos, with the dates they were taken and added.",
+      "Your settings, such as language and sorting, and the date of your last backup.",
+      "Your private space (Private). It is encrypted with AES-256, using a key derived from your PIN. Your PIN itself is never stored."
+     ]
+    ],
+    [
+     "p",
+     "You can delete everything in the app itself, or by clearing Memoaris’s website data in your browser. Note: it is then really gone, unless you have a backup."
+    ],
+    [
+     "h3",
+     "Backups"
+    ],
+    [
+     "p",
+     "A backup is a file you download and keep yourself, for example in iCloud or Google Drive. We never receive that file. Your private space is included in encrypted form and can only be opened with your PIN. The terms of the service where you keep your backup apply to it."
+    ],
+    [
+     "h3",
+     "Sharing"
+    ],
+    [
+     "p",
+     "When you share a photo or video, Memoaris uses your phone’s share menu. The file goes directly to the app you choose, such as WhatsApp or AirDrop. We see nothing of this."
+    ],
+    [
+     "h3",
+     "Where the app comes from"
+    ],
+    [
+     "p",
+     "The app is delivered through GitHub Pages, a service of GitHub, Inc. in the United States. To show and secure the app, GitHub may process technical data such as your IP address. We do not receive that data. You can read more about this in GitHub’s privacy statement."
+    ],
+    [
+     "h3",
+     "Your rights"
+    ],
+    [
+     "p",
+     "Under the GDPR you have the right to access, correct or delete your data. Because we have no data about you, you manage all of this yourself in the app. Still have a question or complaint? Email us at {email}. You can also file a complaint with the Dutch Data Protection Authority (Autoriteit Persoonsgegevens)."
+    ],
+    [
+     "h3",
+     "Changes"
+    ],
+    [
+     "p",
+     "If Memoaris changes, for example by adding accounts or cloud storage, we will update this policy before that happens. At the top you can see when it was last updated."
+    ]
+   ]
+  },
+  "voorwaarden": {
+   "titel": "📄 Terms of use",
+   "blokken": [
+    [
+     "p",
+     "Thanks for using Memoaris. By using the app, you agree to these terms. We keep them short and clear."
+    ],
+    [
+     "h3",
+     "The app"
+    ],
+    [
+     "p",
+     "Memoaris is currently free to use. We do our best to make the app work well and safely, but we can’t promise that it will always work without errors or always be available."
+    ],
+    [
+     "h3",
+     "Your memories"
+    ],
+    [
+     "p",
+     "Everything you put in Memoaris remains yours. It is stored only on your own device, so you are responsible for it yourself:"
+    ],
+    [
+     "ul",
+     [
+      "Make regular backups and keep them in a safe place.",
+      "Remember your Private PIN well. We can’t recover it, and without it your private space can no longer be opened.",
+      "If you clear your browser’s website data or lose your device, your memories are gone unless you have a backup."
+     ]
+    ],
+    [
+     "h3",
+     "Use it responsibly"
+    ],
+    [
+     "p",
+     "Don’t use Memoaris for content that breaks the law. What you share with others, you share at your own responsibility."
+    ],
+    [
+     "h3",
+     "Liability"
+    ],
+    [
+     "p",
+     "To the extent permitted by law, we are not liable for damage caused by using Memoaris, such as the loss of photos, videos or notes."
+    ],
+    [
+     "h3",
+     "Premium"
+    ],
+    [
+     "p",
+     "A paid version with extra features may come later. Before you pay anything, you will see exactly what you get and what it costs."
+    ],
+    [
+     "h3",
+     "Changes and law"
+    ],
+    [
+     "p",
+     "We may change these terms when the app changes. These terms are governed by Dutch law. Questions? Email us at {email}."
+    ]
+   ]
+  }
+ }
+};
+
+let documentVorige = 'home';
+
+function vulGegevensIn(tekst) {
+  const delen = tekst.split(/(\{makers\}|\{email\})/);
+  return delen.map(deel => {
+    if (deel === '{makers}') return MAKERS || t('de makers van Memoaris');
+    if (deel === '{email}') {
+      return CONTACT_EMAIL
+        ? el('a', { href: 'mailto:' + CONTACT_EMAIL, textContent: CONTACT_EMAIL })
+        : t('het e-mailadres dat hier binnenkort staat');
+    }
+    return deel;
+  });
+}
+
+function toonDocument(soort) {
+  const vanaf = document.getElementById('document').hidden ? 'home' : 'over';
+  show('document');
+  documentVorige = soort === 'over' ? 'home' : vanaf;
+
+  const titel = document.getElementById('documentTitel');
+  const inhoud = document.getElementById('documentInhoud');
+  inhoud.replaceChildren();
+
+  if (soort === 'over') {
+    titel.textContent = t('ℹ️ Over Memoaris');
+    inhoud.append(
+      el('p', { textContent: t('Memoaris is een app om je foto’s, video’s en verhalen samen te bewaren, met een versleutelde privéruimte voor wat alleen van jou is.') }),
+      el('div', { className: 'over-info' },
+        el('p', { textContent: t('Gemaakt door {makers}', { makers: MAKERS || t('de makers van Memoaris') }) }),
+        el('p', { className: 'muted', textContent: t('Versie {versie}', { versie: APP_VERSIE }) })
+      ),
+      CONTACT_EMAIL ? el('a', { className: 'knop', href: 'mailto:' + CONTACT_EMAIL, textContent: t('✉️ Mail ons') }) : '',
+      el('button', { className: 'card', onclick: () => toonDocument('privacy') },
+        el('span', {}, el('h2', { textContent: t('🔒 Privacyverklaring') }))),
+      el('button', { className: 'card', onclick: () => toonDocument('voorwaarden') },
+        el('span', {}, el('h2', { textContent: t('📄 Gebruiksvoorwaarden') }))),
+      el('p', { className: 'muted over-info', textContent: t('Gemaakt met ❤️ in Nederland') })
+    );
+  } else {
+    const doc = (DOCUMENTEN[taal] || DOCUMENTEN.en)[soort];
+    titel.textContent = doc.titel;
+    inhoud.append(el('p', { className: 'muted', textContent: t('Bijgewerkt op {datum}', { datum: formatDatum(DOCUMENTEN_BIJGEWERKT + 'T12:00:00') }) }));
+    for (const [soortBlok, tekst] of doc.blokken) {
+      if (soortBlok === 'ul') inhoud.append(el('ul', {}, ...tekst.map(punt => el('li', {}, ...vulGegevensIn(punt)))));
+      else inhoud.append(el(soortBlok, {}, ...vulGegevensIn(tekst)));
+    }
+  }
+  document.getElementById('document').dataset.soort = soort;
+  try { history.replaceState(null, '', '#' + soort); } catch (e) {}
+}
+
+function documentTerug() {
+  if (documentVorige === 'over') toonDocument('over');
+  else {
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    show('home');
+  }
+}
+
 /* ===================== Opstarten ===================== */
 vertaalPagina();
 document.getElementById('selecteerKnop').textContent = t('Selecteren');
@@ -3293,7 +3715,13 @@ setTimeout(() => vulOpnameDatumsAan(), 1500);
 let welkomGezien = false;
 try { welkomGezien = localStorage.getItem(WELKOM_KEY) === '1'; } catch (e) {}
 // Bestaande gebruikers (met mappen of notities) slaan het welkomstscherm over.
-if (!welkomGezien && !data.folders.length && !data.notes.length) toonWelkom();
+const directeLink = location.hash.slice(1);
+if (['over', 'privacy', 'voorwaarden'].includes(directeLink)) {
+  toonDocument(directeLink);
+  documentVorige = 'home';
+} else if (!welkomGezien && !data.folders.length && !data.notes.length) {
+  toonWelkom();
+}
 controleerBackupHerinnering();
 </script>
 </body>
