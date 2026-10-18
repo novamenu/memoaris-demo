@@ -565,6 +565,7 @@ const VERTALINGEN = {
     "+ Verhaal schrijven": "+ Write a story",
     "💾 Back-up": "💾 Backup",
     "Back-up en cloud": "Backup and cloud",
+    "Alles uit deze back-up stond al op dit toestel. Er is niets dubbel toegevoegd.": "Everything in this backup was already on this device. Nothing was added twice.",
     "Alles staat alleen op dit toestel. Maak regelmatig een back-up, zodat je niets kwijtraakt als je telefoon stuk of zoek raakt.": "Everything is stored only on this device. Make regular backups so you don’t lose anything if your phone breaks or gets lost.",
     "📥 Back-up maken": "📥 Make a backup",
     "📤 Back-up herstellen": "📤 Restore a backup",
@@ -3682,6 +3683,8 @@ async function zetDelenTerug(bronnen) {
       '\n\n' + t('Wat al was teruggezet, blijft bewaard:') + '\n' + regels.join('\n'),
       t('Niet helemaal gelukt')
     );
+  } else if (!telling.media && !telling.notities && !telling.prive) {
+    meld(t('Alles uit deze back-up stond al op dit toestel. Er is niets dubbel toegevoegd.'), t('Back-up teruggezet'));
   } else {
     meld(regels.join('\n\n'), t('Back-up teruggezet'));
   }
