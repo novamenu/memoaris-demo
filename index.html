@@ -166,6 +166,15 @@ body.selecteren .toast { bottom: calc(150px + env(safe-area-inset-bottom)); }
 .over-info { text-align: center; padding: 8px 0 4px; }
 .over-info p { margin: 4px 0; }
 
+/* Herstelcode */
+.herstelcode {
+  margin: 16px 0; padding: 18px 12px; border-radius: 16px; border: 2px dashed var(--primair);
+  background: var(--kaart); text-align: center; word-break: break-all;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 24px; font-weight: 700; letter-spacing: 2px;
+}
+.knoppen-onder { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.knoppen-onder .knop { margin: 0; }
+
 /* Taalknop onderaan het beginscherm */
 .taalknop {
   display: block; margin: 8px auto 0; padding: 10px 16px; border: 0; border-radius: 999px;
@@ -783,7 +792,39 @@ const VERTALINGEN = {
     "Gemaakt met ❤️ in Nederland": "Made with ❤️ in the Netherlands",
     "Bijgewerkt op {datum}": "Updated on {datum}",
     "de makers van Memoaris": "the makers of Memoaris",
-    "het e-mailadres dat hier binnenkort staat": "the email address that will appear here soon"
+    "het e-mailadres dat hier binnenkort staat": "the email address that will appear here soon",
+    "🔑 Herstelcode": "🔑 Recovery code",
+    "🔑 Je herstelcode": "🔑 Your recovery code",
+    "Schrijf deze code op en bewaar hem op een veilige plek, bijvoorbeeld in je wachtwoordenkluis. Vergeet je ooit je pincode, dan stel je met deze code een nieuwe in. Je privéfoto’s en -notities blijven dan gewoon bewaard.": "Write this code down and keep it in a safe place, for example in your password manager. If you ever forget your PIN, you can set a new one with this code. Your private photos and notes will stay safe.",
+    "Je ziet deze code maar één keer. Wij kunnen hem niet terughalen.": "You will only see this code once. We cannot recover it.",
+    "📋 Kopiëren": "📋 Copy",
+    "Gekopieerd": "Copied",
+    "Kopiëren lukt hier niet. Schrijf de code over.": "Copying doesn’t work here. Please write the code down.",
+    "Ik heb hem veilig bewaard": "I’ve saved it safely",
+    "Na het instellen krijg je een herstelcode. Daarmee kun je een nieuwe pincode instellen als je hem ooit vergeet.": "After setting it up you’ll get a recovery code. With it you can set a new PIN if you ever forget yours.",
+    "Je hebt nog geen herstelcode. Maak er een, zodat je bij een vergeten pincode niet alles kwijtraakt.": "You don’t have a recovery code yet. Create one so you don’t lose everything if you forget your PIN.",
+    "Herstelcode maken": "Create recovery code",
+    "🔑 Nieuwe herstelcode": "🔑 New recovery code",
+    "Nieuwe herstelcode maken?": "Create a new recovery code?",
+    "Je oude herstelcode werkt daarna niet meer.": "Your old recovery code will stop working.",
+    "Maken": "Create",
+    "🔢 Pincode wijzigen": "🔢 Change PIN",
+    "Kies een nieuwe pincode van 6 cijfers": "Choose a new 6-digit PIN",
+    "Herhaal je nieuwe pincode": "Repeat your new PIN",
+    "Pincode wijzigen": "Change PIN",
+    "Je pincode is gewijzigd": "Your PIN has been changed",
+    "Met je herstelcode stel je een nieuwe pincode in. Je privéfoto’s en -notities blijven bewaard.": "With your recovery code you can set a new PIN. Your private photos and notes stay safe.",
+    "Herstelcode invoeren": "Enter recovery code",
+    "Ik heb geen herstelcode": "I don’t have a recovery code",
+    "Herstelcode": "Recovery code",
+    "Nieuwe pincode instellen": "Set new PIN",
+    "Vul je herstelcode in.": "Enter your recovery code.",
+    "Deze herstelcode klopt niet.": "This recovery code is incorrect.",
+    "Deze herstelcode klopt niet. Wacht {s} seconden.": "This recovery code is incorrect. Wait {s} seconds.",
+    "Je nieuwe pincode is ingesteld": "Your new PIN has been set",
+    "🔑 Pincode herstellen": "🔑 Reset PIN",
+    "Zonder herstelcode kunnen je privénotities en -foto’s niet worden teruggehaald. Je kunt de privéruimte leegmaken en een nieuwe pincode instellen, maar alles in Private wordt dan definitief verwijderd.": "Without a recovery code, your private notes and photos cannot be recovered. You can empty the private space and set a new PIN, but everything in Private will then be permanently deleted.",
+    "← Terug naar pincode": "← Back to PIN"
   }
 };
 
@@ -2243,7 +2284,10 @@ let privateNotities = [];
 let privateTimer = null;
 let privateUrls = [];
 let privateKiestBestand = false; // fotokiezer of camera is open
-let privateWeergave = 'menu';    // 'menu', 'fotos' of 'notities'
+let privateWeergave = 'menu';    // 'menu', 'fotos', 'notities', 'herstelcode' of 'pinWijzigen'
+let privateRuweSleutel = null;   // de echte sleutel, alleen in het geheugen zolang Private open is
+let getoondeHerstelcode = '';    // wordt één keer getoond na het maken
+let herstelModus = false;        // scherm 'pincode vergeten' terwijl Private op slot is
 
 function ruimPrivateUrlsOp() {
   privateUrls.forEach(url => URL.revokeObjectURL(url));
@@ -2266,25 +2310,69 @@ function vanB64(b64) {
   return bytes;
 }
 
+// De privégegevens zijn versleuteld met één echte sleutel. Die sleutel is twee keer
+// apart "ingepakt": met de pincode en (als die bestaat) met de herstelcode.
+// Met een van beide kun je hem uitpakken; de codes zelf worden nergens bewaard.
+//
+// Kluis versie 2: { versie, id, pin: {salt, rondes, iv, ct}, herstel: {…} | null, iv, ct }
+// Kluis versie 1 (ouder): de sleutel kwam rechtstreeks uit de pincode; wordt bij ontgrendelen omgezet.
+const HERSTEL_TEKENS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // zonder O/0 en I/1, om verwarring te voorkomen
+
 function leesPrivateKluis() {
   try {
     const kluis = JSON.parse(localStorage.getItem(PRIVATE_KEY));
-    return kluis && kluis.versie === 1 ? kluis : null;
+    return kluis && (kluis.versie === 1 || kluis.versie === 2) ? kluis : null;
   } catch (e) {
     return null;
   }
 }
 
-async function maakSleutel(pin, salt, rondes) {
-  const basis = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: rondes, hash: 'SHA-256' },
-    basis,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
+function kluisId(kluis) {
+  return kluis.versie === 2 ? kluis.id : kluis.salt;
+}
+
+function heeftHerstelcode() {
+  return !!leesPrivateKluis()?.herstel;
+}
+
+async function pbkdf2Bits(geheim, salt, rondes) {
+  const basis = await crypto.subtle.importKey('raw', new TextEncoder().encode(geheim), 'PBKDF2', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: rondes, hash: 'SHA-256' }, basis, 256));
+}
+
+function aesSleutel(ruw) {
+  return crypto.subtle.importKey('raw', ruw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+
+async function verpak(ruweSleutel, geheim) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const kek = await aesSleutel(await pbkdf2Bits(geheim, salt, PBKDF2_RONDES));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, kek, ruweSleutel);
+  return { salt: naarB64(salt), rondes: PBKDF2_RONDES, iv: naarB64(iv), ct: naarB64(ct) };
+}
+
+// Gooit een fout als het geheim niet klopt.
+async function pakUit(verpakt, geheim) {
+  const kek = await aesSleutel(await pbkdf2Bits(geheim, vanB64(verpakt.salt), verpakt.rondes));
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: vanB64(verpakt.iv) }, kek, vanB64(verpakt.ct)));
+}
+
+async function gebruikSleutel(ruw) {
+  privateRuweSleutel = ruw;
+  privateSleutel = await aesSleutel(ruw);
+}
+
+async function leesKluisNotities(kluis, sleutel) {
+  const leesbaar = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: vanB64(kluis.iv) }, sleutel, vanB64(kluis.ct));
+  return JSON.parse(new TextDecoder().decode(leesbaar));
+}
+
+function schrijfKluis(kluis) {
+  localStorage.setItem(PRIVATE_KEY, JSON.stringify({
+    versie: 2, id: kluis.id, pin: kluis.pin, herstel: kluis.herstel || null, iv: kluis.iv, ct: kluis.ct
+  }));
 }
 
 async function bewaarPrivate() {
@@ -2292,49 +2380,90 @@ async function bewaarPrivate() {
   const kluis = leesPrivateKluis();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const versleuteld = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    privateSleutel,
-    new TextEncoder().encode(JSON.stringify(privateNotities))
-  );
-  localStorage.setItem(PRIVATE_KEY, JSON.stringify({
-    versie: 1,
-    salt: kluis.salt,
-    rondes: kluis.rondes,
-    iv: naarB64(iv),
-    ct: naarB64(versleuteld)
-  }));
+    { name: 'AES-GCM', iv }, privateSleutel, new TextEncoder().encode(JSON.stringify(privateNotities)));
+  schrijfKluis({ ...kluis, iv: naarB64(iv), ct: naarB64(versleuteld) });
 }
 
 async function stelPinIn(pin) {
   // Eventuele oude, onleesbare privéfoto's opruimen.
   await metStore('privefotos', 'readwrite', s => s.clear());
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  privateSleutel = await maakSleutel(pin, salt, PBKDF2_RONDES);
+  const ruw = crypto.getRandomValues(new Uint8Array(32));
+  schrijfKluis({ id: naarB64(crypto.getRandomValues(new Uint8Array(16))), pin: await verpak(ruw, pin), herstel: null });
+  await gebruikSleutel(ruw);
   privateNotities = [];
-  localStorage.setItem(PRIVATE_KEY, JSON.stringify({
-    versie: 1, salt: naarB64(salt), rondes: PBKDF2_RONDES
-  }));
   await bewaarPrivate();
 }
 
-// Geeft true als de pincode klopt. Een verkeerde code kan niet ontsleutelen.
+// Geeft true als de pincode klopt. Een verkeerde code kan niets uitpakken.
 async function ontgrendel(pin) {
   const kluis = leesPrivateKluis();
-  const sleutel = await maakSleutel(pin, vanB64(kluis.salt), kluis.rondes);
-  try {
-    const leesbaar = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: vanB64(kluis.iv) }, sleutel, vanB64(kluis.ct));
-    privateNotities = JSON.parse(new TextDecoder().decode(leesbaar));
-    privateSleutel = sleutel;
+
+  if (kluis.versie === 1) {
+    const ruw = await pbkdf2Bits(pin, vanB64(kluis.salt), kluis.rondes);
+    let notities;
+    try { notities = await leesKluisNotities(kluis, await aesSleutel(ruw)); }
+    catch (e) { return false; }
+    // Omzetten naar versie 2. Dezelfde sleutel blijft in gebruik, dus foto's hoeven niet opnieuw versleuteld te worden.
+    schrijfKluis({ id: kluis.salt, pin: await verpak(ruw, pin), herstel: null, iv: kluis.iv, ct: kluis.ct });
+    await gebruikSleutel(ruw);
+    privateNotities = notities;
     return true;
-  } catch (e) {
-    return false;
   }
+
+  let ruw;
+  try { ruw = await pakUit(kluis.pin, pin); }
+  catch (e) { return false; }
+  const sleutel = await aesSleutel(ruw);
+  privateNotities = await leesKluisNotities(kluis, sleutel);
+  await gebruikSleutel(ruw);
+  return true;
+}
+
+function normaliseerHerstelcode(code) {
+  return (code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function nieuweHerstelcode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const tekens = [...bytes].map(b => HERSTEL_TEKENS[b % HERSTEL_TEKENS.length]).join('');
+  return tekens.match(/.{4}/g).join('-');
+}
+
+// Maakt een (nieuwe) herstelcode; een eventuele oude werkt daarna niet meer.
+async function maakHerstelcode() {
+  if (!privateRuweSleutel) throw new Error('Private is vergrendeld.');
+  const code = nieuweHerstelcode();
+  const kluis = leesPrivateKluis();
+  schrijfKluis({ ...kluis, herstel: await verpak(privateRuweSleutel, normaliseerHerstelcode(code)) });
+  return code;
+}
+
+async function wijzigPincode(nieuwePin) {
+  if (!privateRuweSleutel) throw new Error('Private is vergrendeld.');
+  const kluis = leesPrivateKluis();
+  schrijfKluis({ ...kluis, pin: await verpak(privateRuweSleutel, nieuwePin) });
+}
+
+// Pincode vergeten: met de herstelcode een nieuwe pincode instellen. Geeft false bij een foute code.
+async function herstelMetCode(code, nieuwePin) {
+  const kluis = leesPrivateKluis();
+  if (!kluis?.herstel) return false;
+  let ruw;
+  try { ruw = await pakUit(kluis.herstel, normaliseerHerstelcode(code)); }
+  catch (e) { return false; }
+  const notities = await leesKluisNotities(kluis, await aesSleutel(ruw));
+  schrijfKluis({ ...kluis, pin: await verpak(ruw, nieuwePin) });
+  await gebruikSleutel(ruw);
+  privateNotities = notities;
+  return true;
 }
 
 function vergrendelPrivate() {
   const wasOpen = privateSleutel !== null;
   privateSleutel = null;
+  privateRuweSleutel = null;
+  getoondeHerstelcode = '';
+  herstelModus = false;
   privateNotities = [];
   clearTimeout(privateTimer);
   ruimPrivateUrlsOp();
@@ -2541,6 +2670,7 @@ function openPrivateWeergave(weergave) {
 
 // De terugknop gaat binnen Private eerst terug naar het menu.
 function privateTerug() {
+  if (!privateSleutel && herstelModus) { herstelModus = false; renderPrivate(); return; }
   if (privateSleutel && privateWeergave !== 'menu') openPrivateWeergave('menu');
   else show('home');
 }
@@ -2568,15 +2698,22 @@ function renderPrivate() {
     return;
   }
 
-  const titels = { menu: t('🔒 Private'), fotos: t('🖼️ Privéfoto’s'), notities: t('📝 Privénotities') };
+  const titels = {
+    menu: t('🔒 Private'), fotos: t('🖼️ Privéfoto’s'), notities: t('📝 Privénotities'),
+    herstelcode: t('🔑 Herstelcode'), pinWijzigen: t('🔢 Pincode wijzigen')
+  };
   const ontgrendeld = leesPrivateKluis() && privateSleutel;
-  document.getElementById('privateTitel').textContent = ontgrendeld ? titels[privateWeergave] : t('🔒 Private');
+  document.getElementById('privateTitel').textContent = ontgrendeld
+    ? titels[privateWeergave]
+    : (herstelModus ? t('🔑 Pincode herstellen') : t('🔒 Private'));
 
   if (!leesPrivateKluis()) return toonPinInstellen(doos);
-  if (!privateSleutel) return toonPinInvoer(doos);
+  if (!privateSleutel) return herstelModus ? toonHerstelInvoer(doos) : toonPinInvoer(doos);
 
   if (privateWeergave === 'fotos') toonPrivateFotos(doos);
   else if (privateWeergave === 'notities') toonPrivateNotities(doos);
+  else if (privateWeergave === 'herstelcode') toonHerstelcode(doos);
+  else if (privateWeergave === 'pinWijzigen') toonPinWijzigen(doos);
   else toonPrivateMenu(doos);
 }
 
@@ -2596,6 +2733,8 @@ function toonPinInstellen(doos) {
       await stelPinIn(pin1.value);
       resetPogingen();
       startAutoSlot();
+      getoondeHerstelcode = await maakHerstelcode();
+      privateWeergave = 'herstelcode';
       renderPrivate();
       toast(t('Je privéruimte is klaar'));
     } catch (fout) {
@@ -2607,7 +2746,7 @@ function toonPinInstellen(doos) {
 
   doos.append(
     el('p', { textContent: t('Stel een pincode in voor je privéruimte. Alles wat je hier bewaart, wordt versleuteld met deze code.') }),
-    el('p', { className: 'waarschuwing', textContent: t('Let op: vergeet je je pincode, dan kan niemand je privénotities en -foto’s terughalen.') }),
+    el('p', { className: 'muted', textContent: t('Na het instellen krijg je een herstelcode. Daarmee kun je een nieuwe pincode instellen als je hem ooit vergeet.') }),
     pin1, pin2, knop, melding
   );
 }
@@ -2653,8 +2792,23 @@ function toonPinInvoer(doos) {
 
   const vergeten = el('button', { className: 'back', textContent: t('Pincode vergeten?') });
   vergeten.onclick = async () => {
+    if (heeftHerstelcode()) {
+      const keuze = await toonDialoog({
+        titel: t('Pincode vergeten?'),
+        tekst: t('Met je herstelcode stel je een nieuwe pincode in. Je privéfoto’s en -notities blijven bewaard.'),
+        keuzes: [
+          { label: '🔑 ' + t('Herstelcode invoeren'), waarde: 'code' },
+          { label: t('Ik heb geen herstelcode'), waarde: 'geen' }
+        ],
+        knoppen: [{ label: t('Annuleren'), waarde: null, soort: 'zacht' }]
+      });
+      if (!keuze) return;
+      if (keuze === 'code') { herstelModus = true; renderPrivate(); return; }
+    }
     const ok = await bevestig(
-      t('Zonder je pincode kunnen je privénotities en -foto’s niet worden teruggehaald. Je kunt de privéruimte leegmaken en een nieuwe pincode instellen, maar alles in Private wordt dan definitief verwijderd.'),
+      heeftHerstelcode()
+        ? t('Zonder herstelcode kunnen je privénotities en -foto’s niet worden teruggehaald. Je kunt de privéruimte leegmaken en een nieuwe pincode instellen, maar alles in Private wordt dan definitief verwijderd.')
+        : t('Zonder je pincode kunnen je privénotities en -foto’s niet worden teruggehaald. Je kunt de privéruimte leegmaken en een nieuwe pincode instellen, maar alles in Private wordt dan definitief verwijderd.'),
       { titel: t('Pincode vergeten?'), ok: t('Leegmaken'), gevaar: true }
     );
     if (!ok) return;
@@ -2688,14 +2842,156 @@ function toonPinInvoer(doos) {
   setTimeout(() => pin.focus(), 50);
 }
 
+async function toonNieuweHerstelcode() {
+  try {
+    getoondeHerstelcode = await maakHerstelcode();
+    openPrivateWeergave('herstelcode');
+  } catch (fout) {
+    console.error(fout);
+    meld(t('Instellen is niet gelukt.'));
+  }
+}
+
 function toonPrivateMenu(doos) {
   const aantal = privateNotities.length;
+  const heeftCode = heeftHerstelcode();
+
+  if (!heeftCode) {
+    doos.append(el('div', { className: 'kaart herinnering' },
+      el('p', { textContent: t('Je hebt nog geen herstelcode. Maak er een, zodat je bij een vergeten pincode niet alles kwijtraakt.') }),
+      el('button', { className: 'knop', textContent: '🔑 ' + t('Herstelcode maken'), onclick: toonNieuweHerstelcode })
+    ));
+  }
+
+  const nieuweCode = el('button', {
+    className: 'knop zacht', textContent: t('🔑 Nieuwe herstelcode'),
+    onclick: async () => {
+      const ok = await bevestig(t('Je oude herstelcode werkt daarna niet meer.'), {
+        titel: t('Nieuwe herstelcode maken?'), ok: t('Maken')
+      });
+      if (ok) toonNieuweHerstelcode();
+    }
+  });
+
   doos.append(
     el('p', { className: 'muted', textContent: t('Ontgrendeld. Vergrendelt automatisch na 2 minuten zonder activiteit.') }),
     menuKaart('🖼️', t('Privéfoto’s'), t('Foto’s en video’s, versleuteld bewaard'), () => openPrivateWeergave('fotos')),
     menuKaart('📝', t('Privénotities'), aantal === 1 ? t('1 notitie') : t('{n} notities', { n: aantal }), () => openPrivateWeergave('notities')),
-    vergrendelKnop()
+    el('div', { className: 'knoppen-onder' },
+      el('button', { className: 'knop zacht', textContent: t('🔢 Pincode wijzigen'), onclick: () => openPrivateWeergave('pinWijzigen') }),
+      heeftCode ? nieuweCode : '',
+      vergrendelKnop()
+    )
   );
+}
+
+// Toont de herstelcode één keer, direct nadat hij gemaakt is.
+function toonHerstelcode(doos) {
+  if (!getoondeHerstelcode) { openPrivateWeergave('menu'); return; }
+  const code = getoondeHerstelcode;
+
+  const kopieer = el('button', { className: 'knop zacht', textContent: t('📋 Kopiëren') });
+  kopieer.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast(t('Gekopieerd'));
+    } catch (e) {
+      meld(t('Kopiëren lukt hier niet. Schrijf de code over.'));
+    }
+  };
+
+  doos.append(
+    el('h3', { textContent: t('🔑 Je herstelcode') }),
+    el('p', { textContent: t('Schrijf deze code op en bewaar hem op een veilige plek, bijvoorbeeld in je wachtwoordenkluis. Vergeet je ooit je pincode, dan stel je met deze code een nieuwe in. Je privéfoto’s en -notities blijven dan gewoon bewaard.') }),
+    el('div', { className: 'herstelcode', textContent: code }),
+    el('p', { className: 'waarschuwing', textContent: t('Je ziet deze code maar één keer. Wij kunnen hem niet terughalen.') }),
+    el('div', { className: 'knoppen-onder' },
+      kopieer,
+      el('button', {
+        className: 'knop', textContent: t('Ik heb hem veilig bewaard'),
+        onclick: () => { getoondeHerstelcode = ''; openPrivateWeergave('menu'); }
+      })
+    )
+  );
+}
+
+function toonPinWijzigen(doos) {
+  const pin1 = pinVeld(t('Kies een nieuwe pincode van 6 cijfers'));
+  const pin2 = pinVeld(t('Herhaal je nieuwe pincode'));
+  const melding = el('p', { className: 'muted' });
+  const knop = el('button', { className: 'knop', textContent: t('Pincode wijzigen') });
+
+  knop.onclick = async () => {
+    if (!/^\d{6}$/.test(pin1.value)) { melding.textContent = t('Gebruik precies 6 cijfers.'); return; }
+    if (pin1.value !== pin2.value) { melding.textContent = t('De pincodes zijn niet gelijk.'); return; }
+    knop.disabled = true;
+    melding.textContent = t('Bezig met beveiligen…');
+    try {
+      await wijzigPincode(pin1.value);
+      openPrivateWeergave('menu');
+      toast(t('Je pincode is gewijzigd'));
+    } catch (fout) {
+      console.error(fout);
+      knop.disabled = false;
+      melding.textContent = t('Instellen is niet gelukt.');
+    }
+  };
+
+  doos.append(pin1, pin2, knop, melding);
+  setTimeout(() => pin1.focus(), 50);
+}
+
+// Pincode vergeten: herstelcode invullen en een nieuwe pincode kiezen.
+function toonHerstelInvoer(doos) {
+  const code = el('input', { placeholder: t('Herstelcode'), autocomplete: 'off', spellcheck: false });
+  code.setAttribute('autocapitalize', 'characters');
+  const pin1 = pinVeld(t('Kies een nieuwe pincode van 6 cijfers'));
+  const pin2 = pinVeld(t('Herhaal je nieuwe pincode'));
+  const melding = el('p', { className: 'muted' });
+  const knop = el('button', { className: 'knop', textContent: t('Nieuwe pincode instellen') });
+
+  knop.onclick = async () => {
+    const wacht = resterendeBlokkade();
+    if (wacht > 0) {
+      melding.textContent = t('Te veel pogingen. Probeer het over {s} seconden opnieuw.', { s: Math.ceil(wacht / 1000) });
+      return;
+    }
+    if (normaliseerHerstelcode(code.value).length !== 16) { melding.textContent = t('Vul je herstelcode in.'); return; }
+    if (!/^\d{6}$/.test(pin1.value)) { melding.textContent = t('Gebruik precies 6 cijfers.'); return; }
+    if (pin1.value !== pin2.value) { melding.textContent = t('De pincodes zijn niet gelijk.'); return; }
+
+    knop.disabled = true;
+    melding.textContent = t('Controleren…');
+    let gelukt = false;
+    try { gelukt = await herstelMetCode(code.value, pin1.value); }
+    catch (fout) { console.error(fout); }
+
+    if (gelukt) {
+      herstelModus = false;
+      resetPogingen();
+      startAutoSlot();
+      privateWeergave = 'menu';
+      renderPrivate();
+      toast(t('Je nieuwe pincode is ingesteld'));
+      return;
+    }
+
+    registreerFout();
+    knop.disabled = false;
+    const nieuweWacht = resterendeBlokkade();
+    melding.textContent = nieuweWacht > 0
+      ? t('Deze herstelcode klopt niet. Wacht {s} seconden.', { s: Math.ceil(nieuweWacht / 1000) })
+      : t('Deze herstelcode klopt niet.');
+  };
+
+  const terug = el('button', { className: 'back', textContent: t('← Terug naar pincode') });
+  terug.onclick = () => { herstelModus = false; renderPrivate(); };
+
+  doos.append(
+    el('p', { textContent: t('Met je herstelcode stel je een nieuwe pincode in. Je privéfoto’s en -notities blijven bewaard.') }),
+    code, pin1, pin2, knop, melding, terug
+  );
+  setTimeout(() => code.focus(), 50);
 }
 
 function toonPrivateFotos(doos) {
@@ -3001,11 +3297,23 @@ async function toonOpslag() {
 }
 
 /* ===================== Back-up herstellen ===================== */
+function isVerpakkingGeldig(v) {
+  return v && ['salt', 'iv', 'ct'].every(sleutel => typeof v[sleutel] === 'string') && typeof v.rondes === 'number';
+}
+
+function isKluisGeldig(kluis) {
+  if (!kluis || typeof kluis.iv !== 'string' || typeof kluis.ct !== 'string') return false;
+  if (kluis.versie === 1) return typeof kluis.salt === 'string' && typeof kluis.rondes === 'number';
+  if (kluis.versie === 2) {
+    return typeof kluis.id === 'string' && isVerpakkingGeldig(kluis.pin) &&
+      (kluis.herstel == null || isVerpakkingGeldig(kluis.herstel));
+  }
+  return false;
+}
+
 function isPriveBackupGeldig(prive) {
   return prive &&
-    prive.kluis && prive.kluis.versie === 1 &&
-    ['salt', 'iv', 'ct'].every(sleutel => typeof prive.kluis[sleutel] === 'string') &&
-    typeof prive.kluis.rondes === 'number' &&
+    isKluisGeldig(prive.kluis) &&
     Array.isArray(prive.fotos) &&
     prive.fotos.every(item => item &&
       ['id', 'iv', 'ct', 'type'].every(sleutel => typeof item[sleutel] === 'string'));
@@ -3150,7 +3458,7 @@ function bereidHerstelNotitiesVoor(backupNotities) {
 async function herstelPrive(prive) {
   const huidige = leesPrivateKluis();
 
-  if (huidige && huidige.salt !== prive.kluis.salt) {
+  if (huidige && kluisId(huidige) !== kluisId(prive.kluis)) {
     return t('Private is niet teruggezet, omdat er op dit toestel al een privéruimte met een andere pincode is.');
   }
 
@@ -3362,7 +3670,7 @@ const DOCUMENTEN = {
       "Je mappen, notities, verhalen en bijschriften.",
       "Je foto’s en video’s, met de datum waarop ze gemaakt en toegevoegd zijn.",
       "Je instellingen, zoals taal en sortering, en de datum van je laatste back-up.",
-      "Je privéruimte (Private). Die wordt versleuteld met AES-256, met een sleutel die uit je pincode wordt gemaakt. Je pincode zelf wordt nergens bewaard."
+      "Je privéruimte (Private). Die wordt versleuteld met AES-256 en is alleen te openen met je pincode of je herstelcode. Die codes zelf worden nergens bewaard."
      ]
     ],
     [
@@ -3438,7 +3746,7 @@ const DOCUMENTEN = {
      "ul",
      [
       "Maak regelmatig een back-up en bewaar die op een veilige plek.",
-      "Onthoud de pincode van Private goed. Wij kunnen hem niet terughalen, en zonder pincode is je privéruimte niet meer te openen.",
+      "Bewaar de herstelcode van Private op een veilige plek. Wij kunnen je pincode en herstelcode niet terughalen; zonder een van beide is je privéruimte niet meer te openen.",
       "Wis je de websitegegevens van je browser of raak je je toestel kwijt, dan zijn je herinneringen weg als je geen back-up hebt."
      ]
     ],
@@ -3515,7 +3823,7 @@ const DOCUMENTEN = {
       "Your folders, notes, stories and captions.",
       "Your photos and videos, with the dates they were taken and added.",
       "Your settings, such as language and sorting, and the date of your last backup.",
-      "Your private space (Private). It is encrypted with AES-256, using a key derived from your PIN. Your PIN itself is never stored."
+      "Your private space (Private). It is encrypted with AES-256 and can only be opened with your PIN or your recovery code. Those codes themselves are never stored."
      ]
     ],
     [
@@ -3591,7 +3899,7 @@ const DOCUMENTEN = {
      "ul",
      [
       "Make regular backups and keep them in a safe place.",
-      "Remember your Private PIN well. We can’t recover it, and without it your private space can no longer be opened.",
+      "Keep your Private recovery code in a safe place. We can’t recover your PIN or recovery code; without one of them your private space can no longer be opened.",
       "If you clear your browser’s website data or lose your device, your memories are gone unless you have a backup."
      ]
     ],
