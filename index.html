@@ -244,6 +244,11 @@ textarea { min-height: 140px; resize: vertical; }
   overflow: hidden; aspect-ratio: 1 / 1; background: var(--primair-zacht);
 }
 .tegel img, .tegel video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tegel .hartje {
+  position: absolute; left: 7px; bottom: 5px; color: #fff; font-size: 15px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+.raster-kop .acties { display: flex; gap: 8px; }
 .tegel.video::after {
   content: "▶"; position: absolute; right: 8px; bottom: 6px;
   color: #fff; font-size: 14px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
@@ -347,6 +352,10 @@ textarea { min-height: 140px; resize: vertical; }
     <span class="symbol">🖼️</span>
     <span><h2 data-t>Mijn Memoaris</h2><p data-t>Foto’s, video’s en herinneringen</p></span>
   </button>
+  <button class="card" onclick="show('favorieten')">
+    <span class="symbol">❤️</span>
+    <span><h2 data-t>Favorieten</h2><p data-t>Je mooiste herinneringen bij elkaar</p></span>
+  </button>
   <button class="card" onclick="show('notes')">
     <span class="symbol">📝</span>
     <span><h2 data-t>Notes</h2><p data-t>Schrijf jouw persoonlijke verhalen</p></span>
@@ -378,7 +387,10 @@ textarea { min-height: 140px; resize: vertical; }
 
   <div class="raster-kop" id="rasterKop" hidden>
     <span class="muted" id="aantalHier"></span>
-    <button class="knop klein zacht" id="selecteerKnop" onclick="wisselSelectieModus()">Selecteren</button>
+    <span class="acties">
+      <button class="knop klein zacht" id="sorteerKnop" onclick="kiesSortering()" data-t-aria aria-label="Sorteren">⇅</button>
+      <button class="knop klein zacht" id="selecteerKnop" onclick="wisselSelectieModus()">Selecteren</button>
+    </span>
   </div>
   <div id="mediaPreview" class="raster"></div>
   <p id="leegAlbum" class="leeg" hidden data-t>Nog niets hier. Maak een map of voeg foto’s toe.</p>
@@ -398,6 +410,13 @@ textarea { min-height: 140px; resize: vertical; }
     <input id="herstelBackupInput" type="file" accept=".json,application/json" multiple hidden
            onchange="herstelBackupVeilig(this.files); this.value='';">
   </div>
+</section>
+
+<section id="favorieten" hidden>
+  <button class="back" onclick="show('home')" data-t>← Terug</button>
+  <h2 data-t>❤️ Favorieten</h2>
+  <div id="favorietenRaster" class="raster"></div>
+  <p id="geenFavorieten" class="leeg" hidden data-t>Nog geen favorieten. Open een foto en tik op ♡ Favoriet om hem hier te bewaren.</p>
 </section>
 
 <section id="notes" hidden>
@@ -699,7 +718,21 @@ const VERTALINGEN = {
     "iPhone: tik in Safari op Delen en kies “Zet op beginscherm”.\nAndroid: tik in Chrome op ⋮ en kies “App installeren”.": "iPhone: in Safari, tap Share and choose “Add to Home Screen”.\nAndroid: in Chrome, tap ⋮ and choose “Install app”.",
     "Aan de slag": "Get started",
     "Volgende": "Next",
-    "Overslaan": "Skip"
+    "Overslaan": "Skip",
+    "Favorieten": "Favorites",
+    "Je mooiste herinneringen bij elkaar": "Your best memories together",
+    "❤️ Favorieten": "❤️ Favorites",
+    "Nog geen favorieten. Open een foto en tik op ♡ Favoriet om hem hier te bewaren.": "No favorites yet. Open a photo and tap ♡ Favorite to keep it here.",
+    "♡ Favoriet": "♡ Favorite",
+    "♥ Favoriet": "♥ Favorite",
+    "Toegevoegd aan favorieten": "Added to favorites",
+    "Uit favorieten gehaald": "Removed from favorites",
+    "Gemaakt op {datum}": "Taken on {datum}",
+    "Gemaakt op {opname} · toegevoegd op {toegevoegd}": "Taken on {opname} · added on {toegevoegd}",
+    "Sorteren": "Sort",
+    "Nieuwste eerst": "Newest first",
+    "Oudste eerst": "Oldest first",
+    "Laatst toegevoegd": "Recently added"
   }
 };
 
@@ -936,6 +969,14 @@ async function metStore(naam, modus, werk) {
 }
 
 const alleMedia = () => metStore('fotos', 'readonly', s => s.getAll());
+
+// Past een paar velden van één foto aan op basis van wat er nu echt is opgeslagen.
+function wijzigMediaItem(id, velden) {
+  return metStore('fotos', 'readwrite', s => {
+    const verzoek = s.get(id);
+    verzoek.onsuccess = () => { if (verzoek.result) s.put({ ...verzoek.result, ...velden }); };
+  });
+}
 const slaMediaItemOp = item => metStore('fotos', 'readwrite', s => s.put(item));
 
 async function verwijderMediaDefinitief(ids) {
@@ -979,6 +1020,7 @@ function show(page) {
   if (page === 'notes') renderNotes();
   if (page === 'private') renderPrivate();
   if (page === 'prullenbak') laadPrullenbak();
+  if (page === 'favorieten') laadFavorieten();
   if (page === 'home') { controleerBackupHerinnering(); zoek(); }
   window.scrollTo(0, 0);
 }
@@ -989,7 +1031,10 @@ function goBack() {
 }
 
 /* ===================== Fotoviewer ===================== */
-function openViewer({ url, isVideo, datum, bijschrift, acties }) {
+// Wordt aangeroepen als de viewer dichtgaat, zodat het scherm erachter klopt.
+let naViewerSluiten = null;
+
+function openViewer({ url, isVideo, datum, opname = null, bijschrift, acties }) {
   sluitViewer();
 
   const viewer = el('div', { className: 'viewer', id: 'viewer' });
@@ -1007,7 +1052,15 @@ function openViewer({ url, isVideo, datum, bijschrift, acties }) {
     media.alt = bijschrift || t('Foto');
   }
 
-  const datumRegel = el('p', { className: 'viewer-datum', textContent: datum ? t('Toegevoegd op {datum}', { datum: formatDatum(datum) }) : '' });
+  let datumTekst = '';
+  if (opname && formatDatum(opname) !== formatDatum(datum)) {
+    datumTekst = t('Gemaakt op {opname} · toegevoegd op {toegevoegd}', { opname: formatDatum(opname), toegevoegd: formatDatum(datum) });
+  } else if (opname) {
+    datumTekst = t('Gemaakt op {datum}', { datum: formatDatum(opname) });
+  } else if (datum) {
+    datumTekst = t('Toegevoegd op {datum}', { datum: formatDatum(datum) });
+  }
+  const datumRegel = el('p', { className: 'viewer-datum', textContent: datumTekst });
   const bijschriftRegel = el('p', { className: 'viewer-bijschrift' });
   const zetBijschrift = tekst => {
     bijschriftRegel.textContent = tekst || '';
@@ -1016,11 +1069,11 @@ function openViewer({ url, isVideo, datum, bijschrift, acties }) {
   zetBijschrift(bijschrift);
 
   const balk = el('div', { className: 'viewer-acties' });
-  acties.forEach(actie => balk.append(el('button', {
-    className: 'knop ' + (actie.soort || 'zacht'),
-    textContent: actie.label,
-    onclick: () => actie.onclick({ zetBijschrift })
-  })));
+  acties.forEach(actie => {
+    const knop = el('button', { className: 'knop ' + (actie.soort || 'zacht'), textContent: actie.label });
+    knop.onclick = () => actie.onclick({ zetBijschrift, knop });
+    balk.append(knop);
+  });
 
   viewer.append(sluiten, media, el('div', { className: 'viewer-info' }, datumRegel, bijschriftRegel), balk);
   document.body.append(viewer);
@@ -1033,6 +1086,9 @@ function sluitViewer() {
   viewer.querySelector('video')?.pause();
   viewer.remove();
   document.body.classList.remove('geen-scroll');
+  const vervolg = naViewerSluiten;
+  naViewerSluiten = null;
+  if (vervolg) vervolg();
 }
 
 document.addEventListener('keydown', e => {
@@ -1042,11 +1098,29 @@ document.addEventListener('keydown', e => {
 function openFotoViewer(foto, url, naWijziging = laadFotos) {
   const isVideo = foto.bestand.type.startsWith('video/');
 
+  naViewerSluiten = null;
   openViewer({
     url, isVideo,
     datum: foto.datum,
+    opname: foto.opname,
     bijschrift: foto.bijschrift,
     acties: [
+      {
+        label: foto.favoriet ? t('♥ Favoriet') : t('♡ Favoriet'),
+        onclick: async ({ knop }) => {
+          const nieuw = !foto.favoriet;
+          try {
+            await wijzigMediaItem(foto.id, { favoriet: nieuw });
+            foto.favoriet = nieuw;
+            knop.textContent = nieuw ? t('♥ Favoriet') : t('♡ Favoriet');
+            toast(nieuw ? t('Toegevoegd aan favorieten') : t('Uit favorieten gehaald'));
+            naViewerSluiten = naWijziging; // hartjes in het raster bijwerken zodra de viewer dichtgaat
+          } catch (fout) {
+            console.error(fout);
+            meld(t('Opslaan is niet gelukt.'));
+          }
+        }
+      },
       {
         label: t('✏️ Bijschrift'),
         onclick: async ({ zetBijschrift }) => {
@@ -1058,7 +1132,7 @@ function openFotoViewer(foto, url, naWijziging = laadFotos) {
           if (tekst === null) return;
           const nieuw = tekst.trim();
           try {
-            await slaMediaItemOp({ ...foto, bijschrift: nieuw });
+            await wijzigMediaItem(foto.id, { bijschrift: nieuw });
             foto.bijschrift = nieuw;
             zetBijschrift(nieuw);
             toast(t('Bijschrift opgeslagen'));
@@ -1590,13 +1664,210 @@ function nieuwVerhaalInMap() {
   if (path.length) nieuweNotitie(path[path.length - 1]);
 }
 
+/* ===================== Opnamedatum ===================== */
+// Leest wanneer een foto of video echt gemaakt is. Lukt dat niet, dan null.
+async function leesOpnameDatum(bestand) {
+  try {
+    if (bestand.type === 'image/jpeg' || /\.jpe?g$/i.test(bestand.name || '')) {
+      const datum = exifDatum(new DataView(await bestand.slice(0, 256 * 1024).arrayBuffer()));
+      if (datum) return datum;
+    }
+    if (bestand.type.startsWith('video/')) {
+      const datum = await videoDatum(bestand);
+      if (datum) return datum;
+    }
+  } catch (fout) {
+    console.warn('Opnamedatum niet leesbaar:', fout);
+  }
+  // Op een computer of Android klopt de bestandsdatum vaak; op een iPhone is dat
+  // het moment van kiezen, dus alleen gebruiken als die duidelijk ouder is.
+  if (bestand.lastModified && Date.now() - bestand.lastModified > 10 * 60 * 1000) {
+    return new Date(bestand.lastModified).toISOString();
+  }
+  return null;
+}
+
+// JPEG: zoek in de EXIF-gegevens naar DateTimeOriginal (of anders DateTime).
+function exifDatum(v) {
+  if (v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return null;
+  let o = 2;
+  while (o + 10 < v.byteLength) {
+    const marker = v.getUint16(o);
+    if ((marker & 0xFF00) !== 0xFF00) return null;
+    const lengte = v.getUint16(o + 2);
+    if (marker === 0xFFE1 && v.getUint32(o + 4) === 0x45786966) return tiffDatum(v, o + 10); // "Exif"
+    if (marker === 0xFFDA) return null; // begin van de beelddata
+    o += 2 + lengte;
+  }
+  return null;
+}
+
+function tiffDatum(v, start) {
+  const le = v.getUint16(start) === 0x4949;
+  const u16 = p => v.getUint16(start + p, le);
+  const u32 = p => v.getUint32(start + p, le);
+  const zoek = (ifd, tag) => {
+    if (start + ifd + 2 > v.byteLength) return null;
+    const aantal = u16(ifd);
+    for (let i = 0; i < aantal; i++) {
+      const e = ifd + 2 + i * 12;
+      if (start + e + 12 > v.byteLength) return null;
+      if (u16(e) === tag) return { aantal: u32(e + 4), waarde: u32(e + 8), plek: e + 8 };
+    }
+    return null;
+  };
+  const tekst = item => {
+    if (!item) return null;
+    const plek = item.aantal > 4 ? item.waarde : item.plek;
+    let uit = '';
+    for (let i = 0; i < Math.min(item.aantal, 32) && start + plek + i < v.byteLength; i++) {
+      const c = v.getUint8(start + plek + i);
+      if (!c) break;
+      uit += String.fromCharCode(c);
+    }
+    return uit;
+  };
+  const ifd0 = u32(4);
+  const exif = zoek(ifd0, 0x8769);
+  const waarde = (exif && tekst(zoek(exif.waarde, 0x9003))) || tekst(zoek(ifd0, 0x0132));
+  return exifTekstNaarIso(waarde);
+}
+
+function exifTekstNaarIso(tekst) {
+  const m = /^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(tekst || '');
+  if (!m) return null;
+  const datum = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+  return isNaN(datum) || datum.getFullYear() < 1900 || datum > new Date() ? null : datum.toISOString();
+}
+
+// MP4/MOV: de aanmaaktijd staat in het "mvhd"-blok binnen "moov".
+async function videoDatum(bestand) {
+  const kop = async (van, lengte) => new DataView(await bestand.slice(van, van + lengte).arrayBuffer());
+  const typeVan = (v, p) => String.fromCharCode(v.getUint8(p), v.getUint8(p + 1), v.getUint8(p + 2), v.getUint8(p + 3));
+
+  let o = 0;
+  for (let stappen = 0; stappen < 64 && o + 8 <= bestand.size; stappen++) {
+    const v = await kop(o, 16);
+    let grootte = v.getUint32(0);
+    const type = typeVan(v, 4);
+    let kopLengte = 8;
+    if (grootte === 1) { grootte = Number(v.getBigUint64(8)); kopLengte = 16; }
+    if (grootte === 0) grootte = bestand.size - o;
+    if (grootte < 8) return null;
+
+    if (type === 'moov') {
+      const moov = await kop(o + kopLengte, Math.min(grootte - kopLengte, 8 * 1024 * 1024));
+      let p = 0;
+      while (p + 8 <= moov.byteLength) {
+        const g = moov.getUint32(p);
+        if (typeVan(moov, p + 4) === 'mvhd') {
+          const versie = moov.getUint8(p + 8);
+          const seconden = versie === 1 ? Number(moov.getBigUint64(p + 12)) : moov.getUint32(p + 12);
+          if (!seconden) return null;
+          const datum = new Date((seconden - 2082844800) * 1000); // sinds 1904
+          return isNaN(datum) || datum.getFullYear() < 1970 || datum > new Date() ? null : datum.toISOString();
+        }
+        if (g < 8) break;
+        p += g;
+      }
+      return null;
+    }
+    o += grootte;
+  }
+  return null;
+}
+
+// Foto's van vóór deze versie krijgen op de achtergrond alsnog hun opnamedatum.
+async function vulOpnameDatumsAan() {
+  let items;
+  try { items = await alleMedia(); } catch (e) { return; }
+  let bijgewerkt = 0;
+  for (const item of items) {
+    if (item.opnameGecontroleerd || !item.bestand) continue;
+    const opname = await leesOpnameDatum(item.bestand);
+    try {
+      await wijzigMediaItem(item.id, { opnameGecontroleerd: true, ...(opname ? { opname } : {}) });
+      if (opname) bijgewerkt++;
+    } catch (e) { return; }
+  }
+  if (bijgewerkt && !document.getElementById('albums').hidden && !document.getElementById('viewer')) laadFotos();
+}
+
+/* ===================== Sorteren ===================== */
+const SORTEER_KEY = 'memoaris-sortering';
+const SORTERINGEN = {
+  nieuw: 'Nieuwste eerst',
+  oud: 'Oudste eerst',
+  toegevoegd: 'Laatst toegevoegd'
+};
+
+function huidigeSortering() {
+  try {
+    const keuze = localStorage.getItem(SORTEER_KEY);
+    if (SORTERINGEN[keuze]) return keuze;
+  } catch (e) {}
+  return 'nieuw';
+}
+
+function sorteer(lijst) {
+  const sortering = huidigeSortering();
+  const opnameOfToegevoegd = foto => foto.opname || foto.datum || '';
+  return lijst.sort((a, b) => {
+    if (sortering === 'oud') return opnameOfToegevoegd(a).localeCompare(opnameOfToegevoegd(b));
+    if (sortering === 'toegevoegd') return (b.datum || '').localeCompare(a.datum || '');
+    return opnameOfToegevoegd(b).localeCompare(opnameOfToegevoegd(a));
+  });
+}
+
+async function kiesSortering() {
+  const huidig = huidigeSortering();
+  const keuze = await kiesUit(t('Sorteren'), Object.entries(SORTERINGEN).map(([code, naam]) => ({
+    label: (code === huidig ? '✓ ' : '') + t(naam),
+    waarde: code
+  })));
+  if (!keuze) return;
+  try { localStorage.setItem(SORTEER_KEY, keuze); } catch (e) {}
+  laadFotos();
+  toast(t(SORTERINGEN[keuze]));
+}
+
+/* ===================== Favorieten ===================== */
+let favorietenBeurt = 0;
+
+async function laadFavorieten() {
+  const beurt = ++favorietenBeurt;
+  const raster = document.getElementById('favorietenRaster');
+  let media;
+  try {
+    media = await alleMedia();
+  } catch (fout) {
+    console.error(fout);
+    meld(t('Opgeslagen foto’s konden niet worden geladen.'));
+    return;
+  }
+  if (beurt !== favorietenBeurt) return;
+
+  raster.replaceChildren();
+  ruimUrlsOp();
+  const favorieten = sorteer(media.filter(foto => foto.favoriet && !foto.verwijderdOp));
+  document.getElementById('geenFavorieten').hidden = favorieten.length > 0;
+
+  favorieten.forEach(foto => {
+    const url = maakUrl(foto.bestand);
+    raster.append(maakTegel(foto, url, () => openFotoViewer(foto, url, laadFavorieten)));
+  });
+}
+
 /* ===================== Foto's en video's ===================== */
-function bewaarMedia(bestand) {
+async function bewaarMedia(bestand) {
+  const opname = await leesOpnameDatum(bestand);
   return slaMediaItemOp({
     id: crypto.randomUUID(),
     folderId: path.length ? path[path.length - 1] : 'home',
     bestand,
-    datum: new Date().toISOString()
+    datum: new Date().toISOString(),
+    opnameGecontroleerd: true,
+    ...(opname ? { opname } : {})
   });
 }
 
@@ -1647,9 +1918,7 @@ async function laadFotos() {
   ruimUrlsOp();
 
   const huidigeMap = path.length ? path[path.length - 1] : 'home';
-  const hier = media
-    .filter(foto => foto.folderId === huidigeMap && !foto.verwijderdOp)
-    .sort((a, b) => (b.datum || '').localeCompare(a.datum || ''));
+  const hier = sorteer(media.filter(foto => foto.folderId === huidigeMap && !foto.verwijderdOp));
 
   if (!path.length) toonOpslag(); // aantallen bijwerken na elke wijziging
   document.getElementById('leegAlbum').hidden = hier.length > 0 || currentFolders().length > 0 ||
@@ -1686,6 +1955,7 @@ function maakTegel(foto, url, onclick) {
     element.loading = 'lazy';
   }
   tegel.append(element, el('span', { className: 'vinkje', textContent: '✓' }));
+  if (foto.favoriet) tegel.append(el('span', { className: 'hartje', textContent: '♥' }));
   return tegel;
 }
 
@@ -1863,7 +2133,7 @@ async function zoek() {
   const beurt = ++zoekBeurt;
   let media = [];
   try {
-    media = (await alleMedia()).filter(foto => !foto.verwijderdOp && normaal(foto.bijschrift).includes(vraag));
+    media = sorteer((await alleMedia()).filter(foto => !foto.verwijderdOp && normaal(foto.bijschrift).includes(vraag)));
   } catch (e) {}
   if (beurt !== zoekBeurt) return; // er is intussen verder getypt
 
@@ -2770,6 +3040,9 @@ async function slaHersteldMediaOp(item, bestand) {
           bestand,
           datum: item.datum,
           ...(item.bijschrift ? { bijschrift: item.bijschrift } : {}),
+          ...(item.opname ? { opname: item.opname } : {}),
+          ...(item.favoriet ? { favoriet: true } : {}),
+          ...(item.opnameGecontroleerd ? { opnameGecontroleerd: true } : {}),
           ...(item.verwijderdOp != null ? { verwijderdOp: item.verwijderdOp } : {})
         });
         toegevoegd = true;
@@ -3013,6 +3286,9 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 
 // Ruim verlopen prullenbak-items op bij het openen van de app.
 ruimPrullenbakOp().catch(fout => console.error('Prullenbak opruimen mislukt:', fout));
+
+// Even wachten, zodat de app eerst snel opent.
+setTimeout(() => vulOpnameDatumsAan(), 1500);
 
 let welkomGezien = false;
 try { welkomGezien = localStorage.getItem(WELKOM_KEY) === '1'; } catch (e) {}
