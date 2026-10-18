@@ -240,6 +240,11 @@ textarea { min-height: 140px; resize: vertical; }
 .leeg { text-align: center; color: var(--zacht); padding: 24px 12px; }
 .waarschuwing { background: var(--waarschuw-bg); color: var(--waarschuw-tekst); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
 .blok { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--rand); }
+.cloud { margin-top: 22px; padding-top: 16px; border-top: 1px dashed var(--rand); }
+.cloud h4 { margin: 0 0 2px; font-size: 17px; }
+.cloud .label { display: inline-block; margin: 0 0 8px; padding: 2px 10px; border-radius: 999px;
+  background: var(--primair-zacht); color: var(--primair-tekst); font-size: 13px; font-weight: 600; }
+.cloud .knop[disabled] { opacity: .6; }
 
 /* ===================== Mappen ===================== */
 .map {
@@ -441,6 +446,7 @@ textarea { min-height: 140px; resize: vertical; }
     <button class="knop zacht" onclick="document.getElementById('herstelBackupInput').click()" data-t>📤 Back-up herstellen</button>
     <input id="herstelBackupInput" type="file" accept=".json,application/json" multiple hidden
            onchange="herstelBackupVeilig(this.files); this.value='';">
+    <div id="cloudBlok" class="cloud"></div>
   </div>
 </section>
 
@@ -473,7 +479,7 @@ textarea { min-height: 140px; resize: vertical; }
 <section id="prullenbak" hidden>
   <button class="back" onclick="show('home')" data-t>← Terug</button>
   <h2 data-t>🗑️ Prullenbak</h2>
-  <p class="muted" data-t>Verwijderde herinneringen blijven 30 dagen in de prullenbak en worden daarna automatisch gewist. In de eerste 7 dagen kun je ze terugzetten. Met Premium, binnenkort beschikbaar, kan dat de volle 30 dagen.</p>
+  <p class="muted" id="prullenbakUitleg"></p>
   <div id="prullenbakLijst"></div>
 </section>
 </main>
@@ -494,6 +500,11 @@ const DB_NAAM = 'MemoarisMedia';
 // Versie 4 voegt de versleutelde opslag 'privefotos' toe.
 const DB_VERSIE = 4;
 const DERTIG_DAGEN = 30 * 24 * 60 * 60 * 1000;
+// Premium is nog niet te koop. Zolang dat zo is, kan iedereen de volle 30 dagen terugzetten.
+// Zodra Premium te koop is: zet dit op true, dan geldt gratis 7 dagen en met Premium 30 dagen.
+const PREMIUM_TE_KOOP = false;
+function heeftPremium() { return false; } // komt later uit het account
+function terugzetDagen() { return PREMIUM_TE_KOOP && !heeftPremium() ? 7 : 30; }
 
 function nieuwId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -824,7 +835,67 @@ const VERTALINGEN = {
     "Je nieuwe pincode is ingesteld": "Your new PIN has been set",
     "🔑 Pincode herstellen": "🔑 Reset PIN",
     "Zonder herstelcode kunnen je privénotities en -foto’s niet worden teruggehaald. Je kunt de privéruimte leegmaken en een nieuwe pincode instellen, maar alles in Private wordt dan definitief verwijderd.": "Without a recovery code, your private notes and photos cannot be recovered. You can empty the private space and set a new PIN, but everything in Private will then be permanently deleted.",
-    "← Terug naar pincode": "← Back to PIN"
+    "← Terug naar pincode": "← Back to PIN",
+    "☁️ Cloudback-up": "☁️ Cloud backup",
+    "Premium · gratis tijdens de test": "Premium · free during the test",
+    "Bewaar je back-up versleuteld online. Krijg je een nieuwe telefoon, dan log je in en zet je alles terug. Alleen jij kunt hem openen.": "Keep your backup encrypted online. When you get a new phone, log in and restore everything. Only you can open it.",
+    "Account maken": "Create account",
+    "Inloggen": "Log in",
+    "Ingelogd als {email}": "Logged in as {email}",
+    "Laatste cloudback-up: {datum}": "Last cloud backup: {datum}",
+    "nog geen": "none yet",
+    "☁️ Back-up naar de cloud": "☁️ Back up to the cloud",
+    "⬇️ Terugzetten uit de cloud": "⬇️ Restore from the cloud",
+    "⚙️ Account": "⚙️ Account",
+    "Bezig…": "Working…",
+    "E-mailadres": "Email address",
+    "Wachtwoord (minstens 8 tekens)": "Password (at least 8 characters)",
+    "Wachtwoord": "Password",
+    "Cloudback-up starten": "Start cloud backup",
+    "Je back-up wordt op je telefoon versleuteld met je wachtwoord. Onthoud het goed: zonder je wachtwoord kan niemand je cloudback-up openen, ook wij niet.": "Your backup is encrypted on your phone with your password. Remember it well: without your password nobody can open your cloud backup, not even us.",
+    "Wachtwoord vergeten?": "Forgot password?",
+    "Vul een geldig e-mailadres in.": "Enter a valid email address.",
+    "Kies een wachtwoord van minstens 8 tekens.": "Choose a password of at least 8 characters.",
+    "Account gemaakt. Je kunt nu een cloudback-up maken.": "Account created. You can now make a cloud backup.",
+    "Ingelogd. Je kunt nu een cloudback-up maken of terugzetten.": "Logged in. You can now make or restore a cloud backup.",
+    "Bevestig je e-mailadres": "Confirm your email address",
+    "We hebben je een mail gestuurd. Tik op de link in die mail en log daarna hier in.": "We sent you an email. Tap the link in that email and then log in here.",
+    "Je cloudback-up is versleuteld met je wachtwoord. Daarom kunnen wij je wachtwoord niet terugzetten: dan zou ook je back-up onleesbaar worden.\n\nProbeer je wachtwoord te vinden in je wachtwoordbeheer (bijvoorbeeld Wachtwoorden op je iPhone). Lukt dat niet, mail ons dan via {email}.": "Your cloud backup is encrypted with your password. That is why we cannot reset your password: your backup would become unreadable too.\n\nTry to find your password in your password manager (for example Passwords on your iPhone). If that does not work, email us at {email}.",
+    "Wachtwoord vergeten": "Forgot password",
+    "Uitloggen": "Log out",
+    "Cloudback-up verwijderen": "Delete cloud backup",
+    "Account verwijderen": "Delete account",
+    "Uitloggen?": "Log out?",
+    "Je cloudback-up blijft online bewaard. Log opnieuw in om hem terug te zetten.": "Your cloud backup stays stored online. Log in again to restore it.",
+    "Je bent uitgelogd.": "You are logged out.",
+    "Cloudback-up verwijderen?": "Delete cloud backup?",
+    "Je back-up wordt uit de cloud gewist. De herinneringen op deze telefoon blijven gewoon staan.": "Your backup will be erased from the cloud. The memories on this phone stay where they are.",
+    "Je cloudback-up is verwijderd.": "Your cloud backup has been deleted.",
+    "Account verwijderen?": "Delete account?",
+    "Je account en je cloudback-up worden definitief gewist. De herinneringen op deze telefoon blijven gewoon staan. Dit kan niet ongedaan worden gemaakt.": "Your account and your cloud backup will be permanently erased. The memories on this phone stay where they are. This cannot be undone.",
+    "Je account is verwijderd.": "Your account has been deleted.",
+    "Er staat nog geen back-up in de cloud.": "There is no backup in the cloud yet.",
+    "Terugzetten uit de cloud?": "Restore from the cloud?",
+    "Cloudback-up van {datum} terugzetten? Je huidige herinneringen blijven bewaard. Alles wat ontbreekt, wordt toegevoegd.": "Restore the cloud backup from {datum}? Your current memories will be kept. Anything missing will be added.",
+    "Downloaden: deel {d} van {n}…": "Downloading: part {d} of {n}…",
+    "Uploaden: deel {d} van {n}…": "Uploading: part {d} of {n}…",
+    "Je back-up staat versleuteld in de cloud. Alleen met je wachtwoord kan hij worden geopend.": "Your backup is encrypted in the cloud. It can only be opened with your password.",
+    "Cloudback-up gemaakt": "Cloud backup made",
+    "Cloudback-up mislukt": "Cloud backup failed",
+    "Je back-up bevat een video die te groot is voor de cloud. Maak hiervoor een gewone back-up.": "Your backup contains a video that is too large for the cloud. Make a regular backup for it.",
+    "Geen verbinding met de cloud. Controleer je internet en probeer het opnieuw.": "No connection to the cloud. Check your internet and try again.",
+    "E-mailadres of wachtwoord klopt niet.": "Email address or password is incorrect.",
+    "Er bestaat al een account met dit e-mailadres. Log in.": "An account with this email address already exists. Log in.",
+    "Kies een sterker wachtwoord van minstens 8 tekens.": "Choose a stronger password of at least 8 characters.",
+    "Bevestig eerst je e-mailadres via de mail die je hebt gekregen.": "First confirm your email address using the email you received.",
+    "Te veel pogingen. Wacht even en probeer het opnieuw.": "Too many attempts. Wait a moment and try again.",
+    "Een bestand is te groot voor de cloud.": "A file is too large for the cloud.",
+    "Je bent uitgelogd. Log opnieuw in.": "You are logged out. Log in again.",
+    "De cloud is nog niet klaar voor gebruik. Probeer het later opnieuw.": "The cloud is not ready yet. Try again later.",
+    "Er ging iets mis met de cloud (code {code}). Probeer het later opnieuw.": "Something went wrong with the cloud (code {code}). Try again later.",
+    "Je cloudsleutel kan niet worden geopend met dit wachtwoord.": "Your cloud key cannot be opened with this password.",
+    "De cloudback-up kan niet worden geopend. Hij is beschadigd of met een ander wachtwoord gemaakt.": "The cloud backup cannot be opened. It is damaged or was made with a different password.",
+    "Verwijderde herinneringen blijven 30 dagen in de prullenbak en worden daarna automatisch gewist. Tijdens de testperiode kun je ze al die tijd terugzetten. Later kan dat 7 dagen gratis, en 30 dagen met Premium.": "Deleted memories stay in the trash for 30 days and are then erased automatically. During the test period you can restore them the whole time. Later this will be 7 days for free, and 30 days with Premium."
   }
 };
 
@@ -903,10 +974,17 @@ function toonDialoog({ titel = '', tekst = '', velden = [], keuzes = null, knopp
     if (titel) doos.append(el('h3', { textContent: titel }));
     if (tekst) doos.append(el('p', { textContent: tekst }));
 
-    const invoer = velden.map(veld => el(veld.meerregelig ? 'textarea' : 'input', {
-      value: veld.waarde || '',
-      placeholder: veld.placeholder || ''
-    }));
+    const invoer = velden.map(veld => {
+      const v = el(veld.meerregelig ? 'textarea' : 'input', {
+        value: veld.waarde || '',
+        placeholder: veld.placeholder || ''
+      });
+      if (veld.type) v.type = veld.type;
+      if (veld.autocomplete) v.setAttribute('autocomplete', veld.autocomplete);
+      if (veld.type === 'email') { v.setAttribute('autocapitalize', 'off'); v.spellcheck = false; }
+      if (veld.placeholder) v.setAttribute('aria-label', veld.placeholder);
+      return v;
+    });
     doos.append(...invoer);
 
     const waarden = () => invoer.length === 1 ? invoer[0].value : invoer.map(i => i.value);
@@ -1280,6 +1358,9 @@ function openFotoViewer(foto, url, naWijziging = laadFotos) {
 /* ===================== Prullenbak ===================== */
 async function laadPrullenbak() {
   const lijst = document.getElementById('prullenbakLijst');
+  document.getElementById('prullenbakUitleg').textContent = PREMIUM_TE_KOOP
+    ? t('Verwijderde herinneringen blijven 30 dagen in de prullenbak en worden daarna automatisch gewist. In de eerste 7 dagen kun je ze terugzetten. Met Premium, binnenkort beschikbaar, kan dat de volle 30 dagen.')
+    : t('Verwijderde herinneringen blijven 30 dagen in de prullenbak en worden daarna automatisch gewist. Tijdens de testperiode kun je ze al die tijd terugzetten. Later kan dat 7 dagen gratis, en 30 dagen met Premium.');
 
   let media;
   try {
@@ -1305,7 +1386,7 @@ async function laadPrullenbak() {
 
   verwijderd.forEach(foto => {
     const dagen = Math.floor((Date.now() - foto.verwijderdOp) / 86400000);
-    const kanHerstellen = dagen >= 0 && dagen < 7;
+    const kanHerstellen = dagen >= 0 && dagen < terugzetDagen();
     const kaart = el('div', { className: 'kaart' });
 
     if (kanHerstellen && foto.bestand) {
@@ -3168,8 +3249,8 @@ async function downloadDelen(bestanden) {
   return gedaan.size === bestanden.length;
 }
 
-async function maakBackup() {
-  try {
+// Bouwt de back-upbestanden (één of meer delen) zonder ze te downloaden.
+async function bouwBackupBestanden(deelGrootte = DEEL_GROOTTE) {
     const fotos = await alleMedia();
     const kluis = leesPrivateKluis();
     const privefotos = kluis ? await metStore('privefotos', 'readonly', s => s.getAll()) : [];
@@ -3182,18 +3263,33 @@ async function maakBackup() {
     const delen = [[]];
     let huidig = 0;
     for (const it of items) {
-      if (huidig > 0 && huidig + it.grootte > DEEL_GROOTTE) { delen.push([]); huidig = 0; }
+      if (huidig > 0 && huidig + it.grootte > deelGrootte) { delen.push([]); huidig = 0; }
       delen[delen.length - 1].push(it);
       huidig += it.grootte;
     }
 
-    toast(t('Back-up wordt gemaakt…'));
     const backupId = nieuwId();
     const datum = new Date().toISOString();
     const bestanden = [];
     for (let i = 0; i < delen.length; i++) {
       bestanden.push(await maakBackupDeel(delen[i], { backupId, datum, deel: i + 1, aantal: delen.length, kluis }));
     }
+    return { bestanden, kluis, backupId, datum };
+}
+
+function noteerBackupGemaakt() {
+  try {
+    localStorage.setItem(BACKUP_KEY, String(Date.now()));
+    localStorage.removeItem(LATER_KEY);
+  } catch (e) {}
+  document.getElementById('backupHerinnering').hidden = true;
+  toonOpslag();
+}
+
+async function maakBackup() {
+  try {
+    toast(t('Back-up wordt gemaakt…'));
+    const { bestanden, kluis } = await bouwBackupBestanden();
 
     let compleet = true;
     if (bestanden.length === 1) downloadBestand(bestanden[0]);
@@ -3204,12 +3300,7 @@ async function maakBackup() {
       return;
     }
 
-    try {
-      localStorage.setItem(BACKUP_KEY, String(Date.now()));
-      localStorage.removeItem(LATER_KEY);
-    } catch (e) {}
-    document.getElementById('backupHerinnering').hidden = true;
-    toonOpslag();
+    noteerBackupGemaakt();
 
     meld(
       (bestanden.length > 1
@@ -3294,6 +3385,7 @@ async function toonOpslag() {
   } catch (e) {}
 
   vak.replaceChildren(...regels.map(tekst => el('p', { textContent: tekst })));
+  toonCloud();
 }
 
 /* ===================== Back-up herstellen ===================== */
@@ -3535,13 +3627,19 @@ async function herstelBackupVeilig(lijst) {
   );
   if (!ok) return;
 
+  await zetDelenTerug(bestanden.map(bestand => async () => bestand));
+}
+
+// Zet delen één voor één terug. Elk deel is een functie die het bestand oplevert
+// (direct, of eerst downloaden uit de cloud).
+async function zetDelenTerug(bronnen) {
   const telling = { media: 0, notities: 0, prive: '', backupId: null, aantal: 1, delen: new Set() };
   let fout = null;
 
-  for (let i = 0; i < bestanden.length; i++) {
-    if (bestanden.length > 1) toast(t('Deel {d} van {n} terugzetten…', { d: i + 1, n: bestanden.length }));
+  for (let i = 0; i < bronnen.length; i++) {
+    if (bronnen.length > 1) toast(t('Deel {d} van {n} terugzetten…', { d: i + 1, n: bronnen.length }));
     try {
-      await herstelEenDeel(bestanden[i], telling);
+      await herstelEenDeel(await bronnen[i](i), telling);
     } catch (e) {
       console.error(e);
       fout = e;
@@ -3572,6 +3670,459 @@ async function herstelBackupVeilig(lijst) {
   } else {
     meld(regels.join('\n\n'), t('Back-up teruggezet'));
   }
+}
+
+/* ===================== Cloudback-up (Premium, gratis tijdens de test) ===================== */
+// Werkt met Supabase (servers in de EU). Alles wordt op de telefoon versleuteld voordat het
+// wordt verstuurd. De sleutel daarvoor staat ook online, maar ingepakt met het wachtwoord
+// van de gebruiker; zonder dat wachtwoord kan niemand de back-up openen, ook wij niet.
+//
+// Opslag per gebruiker (bucket 'backups', map = gebruikers-id):
+//   sleutel.json           de ingepakte sleutel
+//   laatste.json           welke back-up de nieuwste is
+//   <backupId>/deel-N.bin  de versleutelde delen (12 bytes iv + versleutelde inhoud)
+const CLOUD_URL = 'https://qrparbrqwlzayjhmcvmv.supabase.co';
+const CLOUD_PUBLIEKE_SLEUTEL = 'sb_publishable_EpYhvbXRdHiN8MMQQQOhcA_zxjGwr5n'; // mag openbaar zijn
+const CLOUD_BUCKET = 'backups';
+const CLOUD_KEY = 'memoaris-cloud';
+const CLOUD_DEEL_GROOTTE = 25 * 1024 * 1024; // als tekst ~34 MB: past onder de grens van 50 MB per bestand
+const CLOUD_MAX_DEEL = 48 * 1024 * 1024;
+
+var cloud = leesCloud();   // var: toonOpslag kan dit al lezen voordat het script hier is
+var cloudBezig = false;
+
+function leesCloud() {
+  try {
+    const c = JSON.parse(localStorage.getItem(CLOUD_KEY));
+    return c && c.uid && c.refresh ? c : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function bewaarCloud() {
+  try {
+    if (cloud) localStorage.setItem(CLOUD_KEY, JSON.stringify(cloud));
+    else localStorage.removeItem(CLOUD_KEY);
+  } catch (e) {}
+}
+
+class CloudFout extends Error {
+  constructor(bericht, status = 0, nietGevonden = false) {
+    super(bericht);
+    this.status = status;
+    this.nietGevonden = nietGevonden;
+  }
+}
+
+function vertaalCloudFout(status, info) {
+  const code = String(info.error_code || info.code || info.error || '');
+  const bericht = String(info.msg || info.message || info.error_description || '').toLowerCase();
+  if (code === 'invalid_credentials' || bericht.includes('invalid login')) return t('E-mailadres of wachtwoord klopt niet.');
+  if (code === 'user_already_exists' || code === 'email_exists' || bericht.includes('already registered')) return t('Er bestaat al een account met dit e-mailadres. Log in.');
+  if (code === 'weak_password' || bericht.includes('password should')) return t('Kies een sterker wachtwoord van minstens 8 tekens.');
+  if (code === 'email_not_confirmed') return t('Bevestig eerst je e-mailadres via de mail die je hebt gekregen.');
+  if (code === 'email_address_invalid' || code === 'validation_failed') return t('Vul een geldig e-mailadres in.');
+  if (status === 429 || code.includes('rate_limit')) return t('Te veel pogingen. Wacht even en probeer het opnieuw.');
+  if (status === 413 || bericht.includes('maximum allowed size') || bericht.includes('too large')) return t('Een bestand is te groot voor de cloud.');
+  if (bericht.includes('bucket not found')) return t('De cloud is nog niet klaar voor gebruik. Probeer het later opnieuw.');
+  if (status === 401 || code === 'bad_jwt' || code === 'session_not_found' || code === 'refresh_token_not_found') return t('Je bent uitgelogd. Log opnieuw in.');
+  return t('Er ging iets mis met de cloud (code {code}). Probeer het later opnieuw.', { code: status || '?' });
+}
+
+async function cloudVerzoek(pad, { methode = 'GET', json, body, token, headers = {} } = {}) {
+  const kop = { apikey: CLOUD_PUBLIEKE_SLEUTEL, ...headers };
+  if (token) kop.Authorization = 'Bearer ' + token;
+  if (json !== undefined) {
+    kop['Content-Type'] = 'application/json';
+    body = JSON.stringify(json);
+  }
+  let antwoord;
+  try {
+    antwoord = await fetch(CLOUD_URL + pad, { method: methode, headers: kop, body });
+  } catch (e) {
+    throw new CloudFout(t('Geen verbinding met de cloud. Controleer je internet en probeer het opnieuw.'));
+  }
+  if (!antwoord.ok) {
+    let info = {};
+    try { info = await antwoord.json(); } catch (e) {}
+    const melding = String(info.message || info.error || '');
+    const nietGevonden = (antwoord.status === 404 || String(info.statusCode) === '404' || /object not found|not_found/i.test(melding)) &&
+      !/bucket/i.test(melding);
+    throw new CloudFout(vertaalCloudFout(antwoord.status, info), antwoord.status, nietGevonden);
+  }
+  return antwoord;
+}
+
+function bewaarSessie(sessie) {
+  cloud = {
+    ...(cloud || {}),
+    email: sessie.user?.email || cloud?.email || '',
+    uid: sessie.user?.id || cloud?.uid,
+    access: sessie.access_token,
+    refresh: sessie.refresh_token,
+    verloopt: Date.now() + (Number(sessie.expires_in) || 3600) * 1000
+  };
+}
+
+function cloudUitloggenLokaal() {
+  cloud = null;
+  bewaarCloud();
+}
+
+async function cloudToken() {
+  if (!cloud) throw new CloudFout(t('Je bent uitgelogd. Log opnieuw in.'), 401);
+  if (cloud.access && Date.now() < cloud.verloopt - 60000) return cloud.access;
+  try {
+    const antwoord = await cloudVerzoek('/auth/v1/token?grant_type=refresh_token', {
+      methode: 'POST', json: { refresh_token: cloud.refresh }
+    });
+    bewaarSessie(await antwoord.json());
+    bewaarCloud();
+    return cloud.access;
+  } catch (fout) {
+    if (fout.status === 400 || fout.status === 401 || fout.status === 403) {
+      cloudUitloggenLokaal();
+      toonCloud();
+      throw new CloudFout(t('Je bent uitgelogd. Log opnieuw in.'), 401);
+    }
+    throw fout;
+  }
+}
+
+function cloudPad(...delen) {
+  return '/' + [CLOUD_BUCKET, cloud.uid, ...delen].map(encodeURIComponent).join('/');
+}
+
+async function cloudSchrijf(naam, inhoud, type, overschrijf = true) {
+  const token = await cloudToken();
+  await cloudVerzoek('/storage/v1/object' + cloudPad(...naam.split('/')), {
+    methode: 'POST', token, body: inhoud,
+    headers: { 'Content-Type': type, 'x-upsert': overschrijf ? 'true' : 'false' }
+  });
+}
+
+async function cloudLees(naam) {
+  const token = await cloudToken();
+  try {
+    const antwoord = await cloudVerzoek('/storage/v1/object/authenticated' + cloudPad(...naam.split('/')), { token });
+    return await antwoord.arrayBuffer();
+  } catch (fout) {
+    if (fout.nietGevonden) return null;
+    throw fout;
+  }
+}
+
+async function cloudLeesJson(naam) {
+  const inhoud = await cloudLees(naam);
+  return inhoud ? JSON.parse(new TextDecoder().decode(inhoud)) : null;
+}
+
+async function cloudVerwijder(namen) {
+  if (!namen.length) return;
+  const token = await cloudToken();
+  await cloudVerzoek('/storage/v1/object/' + CLOUD_BUCKET, {
+    methode: 'DELETE', token, json: { prefixes: namen.map(naam => cloud.uid + '/' + naam) }
+  });
+}
+
+// Alle bestanden van deze gebruiker (één niveau mappen diep).
+async function cloudAlleBestanden() {
+  const token = await cloudToken();
+  async function lijst(map) {
+    const antwoord = await cloudVerzoek('/storage/v1/object/list/' + CLOUD_BUCKET, {
+      methode: 'POST', token, json: { prefix: map ? cloud.uid + '/' + map : cloud.uid, limit: 1000, offset: 0 }
+    });
+    return antwoord.json();
+  }
+  const namen = [];
+  for (const item of await lijst('')) {
+    if (item.id) namen.push(item.name);
+    else for (const sub of await lijst(item.name)) if (sub.id) namen.push(item.name + '/' + sub.name);
+  }
+  return namen;
+}
+
+async function cloudSleutel() {
+  return aesSleutel(vanB64(cloud.sleutel));
+}
+
+async function cloudVersleutel(blob) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await cloudSleutel(), await blob.arrayBuffer());
+  const uit = new Uint8Array(12 + ct.byteLength);
+  uit.set(iv);
+  uit.set(new Uint8Array(ct), 12);
+  return uit;
+}
+
+async function cloudOntsleutel(buffer) {
+  const bytes = new Uint8Array(buffer);
+  try {
+    return await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, await cloudSleutel(), bytes.slice(12));
+  } catch (e) {
+    throw new CloudFout(t('De cloudback-up kan niet worden geopend. Hij is beschadigd of met een ander wachtwoord gemaakt.'));
+  }
+}
+
+// Na inloggen: haal de sleutel op en pak hem uit met het wachtwoord, of maak een nieuwe.
+async function koppelCloudSleutel(wachtwoord) {
+  const verpakt = await cloudLeesJson('sleutel.json');
+  let ruw;
+  if (verpakt) {
+    try {
+      ruw = await pakUit(verpakt, wachtwoord);
+    } catch (e) {
+      throw new CloudFout(t('Je cloudsleutel kan niet worden geopend met dit wachtwoord.'));
+    }
+  } else {
+    ruw = crypto.getRandomValues(new Uint8Array(32));
+    await cloudSchrijf('sleutel.json', JSON.stringify({ versie: 1, ...(await verpak(ruw, wachtwoord)) }), 'application/json', false);
+  }
+  cloud.sleutel = naarB64(ruw);
+  bewaarCloud();
+}
+
+async function vraagCloudGegevens(nieuw) {
+  const knoppen = [{ label: t('Annuleren'), waarde: null, soort: 'zacht' }];
+  if (!nieuw) knoppen.push({ label: t('Wachtwoord vergeten?'), waarde: 'vergeten', soort: 'zacht' });
+  knoppen.push({ label: nieuw ? t('Account maken') : t('Inloggen'), waarde: 'invoer' });
+  return toonDialoog({
+    titel: nieuw ? t('Cloudback-up starten') : t('Inloggen'),
+    tekst: nieuw ? t('Je back-up wordt op je telefoon versleuteld met je wachtwoord. Onthoud het goed: zonder je wachtwoord kan niemand je cloudback-up openen, ook wij niet.') : '',
+    velden: [
+      { type: 'email', placeholder: t('E-mailadres'), autocomplete: 'email', waarde: cloud?.email || '' },
+      { type: 'password', placeholder: nieuw ? t('Wachtwoord (minstens 8 tekens)') : t('Wachtwoord'), autocomplete: nieuw ? 'new-password' : 'current-password' }
+    ],
+    knoppen
+  });
+}
+
+async function cloudAanmelden(nieuw) {
+  if (cloudBezig) return;
+  const antwoord = await vraagCloudGegevens(nieuw);
+  if (antwoord === 'vergeten') {
+    meld(t('Je cloudback-up is versleuteld met je wachtwoord. Daarom kunnen wij je wachtwoord niet terugzetten: dan zou ook je back-up onleesbaar worden.\n\nProbeer je wachtwoord te vinden in je wachtwoordbeheer (bijvoorbeeld Wachtwoorden op je iPhone). Lukt dat niet, mail ons dan via {email}.', { email: CONTACT_EMAIL }), t('Wachtwoord vergeten'));
+    return;
+  }
+  if (!Array.isArray(antwoord)) return;
+  const email = antwoord[0].trim().toLowerCase();
+  const wachtwoord = antwoord[1];
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return meld(t('Vul een geldig e-mailadres in.'));
+  if (wachtwoord.length < 8) return meld(t('Kies een wachtwoord van minstens 8 tekens.'));
+
+  cloudBezig = true;
+  toonCloud();
+  try {
+    let sessie;
+    if (nieuw) {
+      sessie = await (await cloudVerzoek('/auth/v1/signup', { methode: 'POST', json: { email, password: wachtwoord } })).json();
+      if (!sessie.access_token) {
+        meld(t('We hebben je een mail gestuurd. Tik op de link in die mail en log daarna hier in.'), t('Bevestig je e-mailadres'));
+        return;
+      }
+    } else {
+      sessie = await (await cloudVerzoek('/auth/v1/token?grant_type=password', { methode: 'POST', json: { email, password: wachtwoord } })).json();
+    }
+    bewaarSessie(sessie);
+    try {
+      await koppelCloudSleutel(wachtwoord);
+    } catch (fout) {
+      cloudUitloggenLokaal();
+      throw fout;
+    }
+    try { cloud.laatste = await cloudLeesJson('laatste.json'); bewaarCloud(); } catch (e) {}
+    toast(nieuw ? t('Account gemaakt. Je kunt nu een cloudback-up maken.') : t('Ingelogd. Je kunt nu een cloudback-up maken of terugzetten.'));
+  } catch (fout) {
+    console.error(fout);
+    meld(fout instanceof CloudFout ? fout.message : t('Er ging iets mis met de cloud (code {code}). Probeer het later opnieuw.', { code: '?' }));
+  } finally {
+    cloudBezig = false;
+    toonCloud();
+  }
+}
+
+function zetCloudStatus(tekst) {
+  const status = document.getElementById('cloudStatus');
+  if (status) status.textContent = tekst;
+}
+
+async function cloudBackupMaken() {
+  if (cloudBezig) return;
+  cloudBezig = true;
+  toonCloud();
+  const geupload = [];
+  try {
+    zetCloudStatus(t('Back-up wordt gemaakt…'));
+    const { bestanden, kluis, backupId, datum } = await bouwBackupBestanden(CLOUD_DEEL_GROOTTE);
+    if (bestanden.some(bestand => bestand.blob.size > CLOUD_MAX_DEEL)) {
+      throw new CloudFout(t('Je back-up bevat een video die te groot is voor de cloud. Maak hiervoor een gewone back-up.'));
+    }
+
+    let grootte = 0;
+    try {
+      for (let i = 0; i < bestanden.length; i++) {
+        zetCloudStatus(t('Uploaden: deel {d} van {n}…', { d: i + 1, n: bestanden.length }));
+        const naam = backupId + '/deel-' + (i + 1) + '.bin';
+        const versleuteld = await cloudVersleutel(bestanden[i].blob);
+        grootte += versleuteld.byteLength;
+        await cloudSchrijf(naam, versleuteld, 'application/octet-stream');
+        geupload.push(naam);
+      }
+    } catch (fout) {
+      await cloudVerwijder(geupload).catch(() => {});
+      throw fout;
+    }
+
+    // Pas als alle delen er staan, wordt dit de nieuwste back-up. Daarna mag de vorige weg.
+    const vorige = await cloudLeesJson('laatste.json').catch(() => null);
+    const info = { versie: 1, backupId, datum, aantal: bestanden.length, grootte, metPrive: !!kluis };
+    await cloudSchrijf('laatste.json', JSON.stringify(info), 'application/json');
+    if (vorige && vorige.backupId && vorige.backupId !== backupId) {
+      const oud = [];
+      for (let i = 1; i <= (vorige.aantal || 1); i++) oud.push(vorige.backupId + '/deel-' + i + '.bin');
+      await cloudVerwijder(oud).catch(() => {});
+    }
+
+    cloud.laatste = info;
+    bewaarCloud();
+    noteerBackupGemaakt();
+    meld(
+      t('Je back-up staat versleuteld in de cloud. Alleen met je wachtwoord kan hij worden geopend.') +
+      (kluis ? '\n\n' + t('Private zit er versleuteld in. Je hebt je pincode nodig om het terug te zetten.') : ''),
+      t('Cloudback-up gemaakt')
+    );
+  } catch (fout) {
+    console.error('Cloudback-up mislukt:', fout);
+    meld(fout instanceof CloudFout ? fout.message : t('De back-up kon niet worden gemaakt. Er is niets verwijderd.'), t('Cloudback-up mislukt'));
+  } finally {
+    cloudBezig = false;
+    toonCloud();
+  }
+}
+
+async function cloudTerugzetten() {
+  if (cloudBezig) return;
+  cloudBezig = true;
+  toonCloud();
+  try {
+    const info = await cloudLeesJson('laatste.json');
+    if (!info || !info.backupId) {
+      meld(t('Er staat nog geen back-up in de cloud.'));
+      return;
+    }
+    const ok = await bevestig(
+      t('Cloudback-up van {datum} terugzetten? Je huidige herinneringen blijven bewaard. Alles wat ontbreekt, wordt toegevoegd.', { datum: formatDatum(info.datum) }) +
+      (info.metPrive ? '\n\n' + t('Private zit er versleuteld in. Je hebt je pincode nodig om het terug te zetten.') : ''),
+      { titel: t('Terugzetten uit de cloud?'), ok: t('Terugzetten') }
+    );
+    if (!ok) return;
+
+    const aantal = info.aantal || 1;
+    const bronnen = [];
+    for (let i = 1; i <= aantal; i++) {
+      bronnen.push(async () => {
+        zetCloudStatus(t('Downloaden: deel {d} van {n}…', { d: i, n: aantal }));
+        const inhoud = await cloudLees(info.backupId + '/deel-' + i + '.bin');
+        if (!inhoud) throw new CloudFout(t('Er ging iets mis met de cloud (code {code}). Probeer het later opnieuw.', { code: 404 }));
+        const leesbaar = await cloudOntsleutel(inhoud);
+        return new File([leesbaar], 'cloud-deel-' + i + '.json', { type: 'application/json' });
+      });
+    }
+    await zetDelenTerug(bronnen);
+    toonOpslag();
+  } catch (fout) {
+    console.error(fout);
+    meld(fout instanceof CloudFout ? fout.message : t('Er ging iets mis met de cloud (code {code}). Probeer het later opnieuw.', { code: '?' }));
+  } finally {
+    cloudBezig = false;
+    toonCloud();
+  }
+}
+
+async function cloudAccountMenu() {
+  if (cloudBezig) return;
+  const keuze = await kiesUit(cloud.email, [
+    { label: '🚪 ' + t('Uitloggen'), waarde: 'uit' },
+    { label: '🗑️ ' + t('Cloudback-up verwijderen'), waarde: 'backup' },
+    { label: '⚠️ ' + t('Account verwijderen'), waarde: 'account' }
+  ]);
+  if (!keuze) return;
+
+  if (keuze === 'uit') {
+    if (!(await bevestig(t('Je cloudback-up blijft online bewaard. Log opnieuw in om hem terug te zetten.'), { titel: t('Uitloggen?'), ok: t('Uitloggen') }))) return;
+    const token = cloud.access;
+    cloudUitloggenLokaal();
+    toonCloud();
+    cloudVerzoek('/auth/v1/logout', { methode: 'POST', token }).catch(() => {});
+    toast(t('Je bent uitgelogd.'));
+    return;
+  }
+
+  const account = keuze === 'account';
+  const ok = await bevestig(
+    account
+      ? t('Je account en je cloudback-up worden definitief gewist. De herinneringen op deze telefoon blijven gewoon staan. Dit kan niet ongedaan worden gemaakt.')
+      : t('Je back-up wordt uit de cloud gewist. De herinneringen op deze telefoon blijven gewoon staan.'),
+    { titel: account ? t('Account verwijderen?') : t('Cloudback-up verwijderen?'), ok: t('Verwijderen'), gevaar: true }
+  );
+  if (!ok) return;
+
+  cloudBezig = true;
+  toonCloud();
+  try {
+    const namen = await cloudAlleBestanden();
+    const weg = account ? namen : namen.filter(naam => naam !== 'sleutel.json');
+    await cloudVerwijder(weg);
+    if (account) {
+      await cloudVerzoek('/rest/v1/rpc/verwijder_mijn_account', { methode: 'POST', token: await cloudToken(), json: {} });
+      cloudUitloggenLokaal();
+      meld(t('Je account is verwijderd.'));
+    } else {
+      cloud.laatste = null;
+      bewaarCloud();
+      meld(t('Je cloudback-up is verwijderd.'));
+    }
+  } catch (fout) {
+    console.error(fout);
+    meld(fout instanceof CloudFout ? fout.message : t('Er ging iets mis met de cloud (code {code}). Probeer het later opnieuw.', { code: '?' }));
+  } finally {
+    cloudBezig = false;
+    toonCloud();
+  }
+}
+
+function toonCloud() {
+  const blok = document.getElementById('cloudBlok');
+  if (!blok) return;
+  const knop = (tekst, actie, soort = 'zacht') => el('button', {
+    className: 'knop ' + soort, textContent: tekst, disabled: cloudBezig, onclick: actie
+  });
+
+  const inhoud = [
+    el('h4', { textContent: t('☁️ Cloudback-up') }),
+    el('span', { className: 'label', textContent: t('Premium · gratis tijdens de test') })
+  ];
+  if (!cloud || !cloud.sleutel) {
+    inhoud.push(
+      el('p', { className: 'muted', textContent: t('Bewaar je back-up versleuteld online. Krijg je een nieuwe telefoon, dan log je in en zet je alles terug. Alleen jij kunt hem openen.') }),
+      knop(t('Account maken'), () => cloudAanmelden(true), ''),
+      knop(t('Inloggen'), () => cloudAanmelden(false))
+    );
+  } else {
+    inhoud.push(
+      el('p', { className: 'muted', textContent: t('Ingelogd als {email}', { email: cloud.email }) }),
+      el('p', { className: 'muted', textContent: t('Laatste cloudback-up: {datum}', { datum: cloud.laatste?.datum ? formatDatum(cloud.laatste.datum) : t('nog geen') }) }),
+      knop(t('☁️ Back-up naar de cloud'), () => cloudBackupMaken(), ''),
+      knop(t('⬇️ Terugzetten uit de cloud'), () => cloudTerugzetten()),
+      knop(t('⚙️ Account'), () => cloudAccountMenu())
+    );
+  }
+  const status = el('p', { className: 'muted', id: 'cloudStatus' });
+  status.setAttribute('role', 'status');
+  if (cloudBezig) status.textContent = t('Bezig…');
+  inhoud.push(status);
+  blok.replaceChildren(...inhoud);
 }
 
 /* ===================== Welkomstscherm ===================== */
@@ -3638,7 +4189,7 @@ const DOCUMENTEN = {
    "blokken": [
     [
      "p",
-     "Memoaris is gemaakt om je herinneringen privé te houden. Hier lees je welke gegevens er zijn, waar ze staan en wat wij ermee doen. Kort gezegd: wij verzamelen niets."
+     "Memoaris is gemaakt om je herinneringen privé te houden. Hier lees je welke gegevens er zijn, waar ze staan en wat wij ermee doen. Kort gezegd: zonder account verzamelen wij niets, en ook met een account kunnen wij je foto’s, video’s en notities niet zien."
     ],
     [
      "h3",
@@ -3654,7 +4205,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "Geen. Memoaris heeft geen accounts, geen server waar je gegevens naartoe gaan, geen advertenties en niets dat bijhoudt hoe je de app gebruikt. Wij kunnen je foto’s, video’s en notities niet zien."
+     "Zonder account: geen. Memoaris heeft dan geen server waar je gegevens naartoe gaan, geen advertenties en niets dat bijhoudt hoe je de app gebruikt. Wat er gebeurt als je de cloudback-up gebruikt, lees je hieronder."
     ],
     [
      "h3",
@@ -3687,6 +4238,26 @@ const DOCUMENTEN = {
     ],
     [
      "h3",
+     "Cloudback-up (optioneel)"
+    ],
+    [
+     "p",
+     "Maak je een account voor de cloudback-up, dan bewaren wij alleen:"
+    ],
+    [
+     "ul",
+     [
+      "Je e-mailadres en je wachtwoord, zodat je kunt inloggen. Je wachtwoord wordt niet leesbaar opgeslagen.",
+      "Je back-up. Die wordt op je eigen telefoon versleuteld (AES-256) voordat hij wordt verstuurd. De sleutel is beveiligd met jouw wachtwoord, dus wij kunnen je back-up niet openen.",
+      "Technische gegevens die nodig zijn om de dienst te laten werken, zoals wanneer je voor het laatst hebt ingelogd en je IP-adres."
+     ]
+    ],
+    [
+     "p",
+     "Deze gegevens staan bij Supabase, op servers in de Europese Unie (Frankfurt). Supabase verwerkt ze alleen voor ons. Wij gebruiken ze alleen om de cloudback-up te laten werken. Je kunt je cloudback-up en je account op elk moment zelf verwijderen in de app; dan wordt alles wat erbij hoort gewist."
+    ],
+    [
+     "h3",
      "Delen"
     ],
     [
@@ -3707,7 +4278,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "Volgens de privacywet (AVG) mag je je gegevens inzien, laten aanpassen of laten verwijderen. Omdat wij geen gegevens van je hebben, regel je dat allemaal zelf in de app. Heb je toch een vraag of klacht? Mail ons via {email}. Je kunt ook een klacht indienen bij de Autoriteit Persoonsgegevens."
+     "Volgens de privacywet (AVG) mag je je gegevens inzien, laten aanpassen of laten verwijderen. Zonder account regel je dat allemaal zelf in de app, want wij hebben dan geen gegevens van je. Met een account verwijder je je account en cloudback-up zelf via Mijn Memoaris → Back-up → ⚙️ Account. Heb je een vraag of klacht? Mail ons via {email}. Je kunt ook een klacht indienen bij de Autoriteit Persoonsgegevens."
     ],
     [
      "h3",
@@ -3715,7 +4286,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "Als Memoaris verandert, bijvoorbeeld door accounts of opslag in de cloud, passen we deze verklaring aan voordat dat gebeurt. Bovenaan zie je wanneer hij voor het laatst is bijgewerkt."
+     "Als Memoaris verandert, passen we deze verklaring aan voordat dat gebeurt. Bovenaan zie je wanneer hij voor het laatst is bijgewerkt."
     ]
    ]
   },
@@ -3740,7 +4311,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "Alles wat je in Memoaris zet, blijft van jou. Het staat alleen op je eigen toestel, dus je bent er zelf verantwoordelijk voor:"
+     "Alles wat je in Memoaris zet, blijft van jou. Het staat op je eigen toestel (en als je dat kiest versleuteld in de cloudback-up), dus je bent er zelf verantwoordelijk voor:"
     ],
     [
      "ul",
@@ -3749,6 +4320,14 @@ const DOCUMENTEN = {
       "Bewaar de herstelcode van Private op een veilige plek. Wij kunnen je pincode en herstelcode niet terughalen; zonder een van beide is je privéruimte niet meer te openen.",
       "Wis je de websitegegevens van je browser of raak je je toestel kwijt, dan zijn je herinneringen weg als je geen back-up hebt."
      ]
+    ],
+    [
+     "h3",
+     "Cloudback-up"
+    ],
+    [
+     "p",
+     "De cloudback-up hoort bij Premium en is tijdens de testperiode gratis. We doen ons best om je back-up veilig te bewaren, maar zie hem als extra: maak daarnaast af en toe ook een gewone back-up. Vergeet je je wachtwoord, dan kan niemand je cloudback-up nog openen, ook wij niet. We kunnen de testperiode beëindigen; dat laten we dan ruim van tevoren weten."
     ],
     [
      "h3",
@@ -3772,7 +4351,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "Mogelijk komt er later een betaalde versie met extra functies. Voordat je daarvoor iets betaalt, lees je precies wat je krijgt en wat het kost."
+     "Premium, met onder meer de cloudback-up, is tijdens de testperiode gratis. Voordat je ergens voor betaalt, lees je precies wat je krijgt en wat het kost."
     ],
     [
      "h3",
@@ -3791,7 +4370,7 @@ const DOCUMENTEN = {
    "blokken": [
     [
      "p",
-     "Memoaris is made to keep your memories private. Here you can read what data there is, where it is stored and what we do with it. In short: we collect nothing."
+     "Memoaris is made to keep your memories private. Here you can read what data there is, where it is stored and what we do with it. In short: without an account we collect nothing, and even with an account we cannot see your photos, videos or notes."
     ],
     [
      "h3",
@@ -3807,7 +4386,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "None. Memoaris has no accounts, no server your data is sent to, no ads and nothing that tracks how you use the app. We cannot see your photos, videos or notes."
+     "Without an account: none. Memoaris then has no server your data is sent to, no ads and nothing that tracks how you use the app. What happens when you use the cloud backup is explained below."
     ],
     [
      "h3",
@@ -3840,6 +4419,26 @@ const DOCUMENTEN = {
     ],
     [
      "h3",
+     "Cloud backup (optional)"
+    ],
+    [
+     "p",
+     "If you create an account for the cloud backup, we only store:"
+    ],
+    [
+     "ul",
+     [
+      "Your email address and your password, so you can log in. Your password is not stored in readable form.",
+      "Your backup. It is encrypted on your own phone (AES-256) before it is sent. The key is protected with your password, so we cannot open your backup.",
+      "Technical data needed to run the service, such as when you last logged in and your IP address."
+     ]
+    ],
+    [
+     "p",
+     "This data is stored with Supabase, on servers in the European Union (Frankfurt). Supabase only processes it on our behalf. We only use it to make the cloud backup work. You can delete your cloud backup and your account yourself in the app at any time; everything that belongs to it is then erased."
+    ],
+    [
+     "h3",
      "Sharing"
     ],
     [
@@ -3860,7 +4459,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "Under the GDPR you have the right to access, correct or delete your data. Because we have no data about you, you manage all of this yourself in the app. Still have a question or complaint? Email us at {email}. You can also file a complaint with the Dutch Data Protection Authority (Autoriteit Persoonsgegevens)."
+     "Under the GDPR you have the right to access, correct or delete your data. Without an account you manage all of this yourself in the app, because we then have no data about you. With an account you delete your account and cloud backup yourself via My Memoaris → Backup → ⚙️ Account. Have a question or complaint? Email us at {email}. You can also file a complaint with the Dutch Data Protection Authority (Autoriteit Persoonsgegevens)."
     ],
     [
      "h3",
@@ -3868,7 +4467,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "If Memoaris changes, for example by adding accounts or cloud storage, we will update this policy before that happens. At the top you can see when it was last updated."
+     "If Memoaris changes, we will update this policy before that happens. At the top you can see when it was last updated."
     ]
    ]
   },
@@ -3893,7 +4492,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "Everything you put in Memoaris remains yours. It is stored only on your own device, so you are responsible for it yourself:"
+     "Everything you put in Memoaris remains yours. It is stored on your own device (and, if you choose, encrypted in the cloud backup), so you are responsible for it yourself:"
     ],
     [
      "ul",
@@ -3902,6 +4501,14 @@ const DOCUMENTEN = {
       "Keep your Private recovery code in a safe place. We can’t recover your PIN or recovery code; without one of them your private space can no longer be opened.",
       "If you clear your browser’s website data or lose your device, your memories are gone unless you have a backup."
      ]
+    ],
+    [
+     "h3",
+     "Cloud backup"
+    ],
+    [
+     "p",
+     "The cloud backup is part of Premium and is free during the test period. We do our best to keep your backup safe, but see it as an extra: also make a regular backup from time to time. If you forget your password, nobody can open your cloud backup anymore, not even us. We may end the test period; if so, we will let you know well in advance."
     ],
     [
      "h3",
@@ -3925,7 +4532,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "A paid version with extra features may come later. Before you pay anything, you will see exactly what you get and what it costs."
+     "Premium, including the cloud backup, is free during the test period. Before you pay for anything, you will see exactly what you get and what it costs."
     ],
     [
      "h3",
