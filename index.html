@@ -440,7 +440,17 @@ textarea { min-height: 140px; resize: vertical; }
   </div>
 
   <div id="backupBlok" class="blok">
-    <h3 data-t>💾 Back-up</h3>
+    <button class="card" onclick="show('backup')">
+      <span class="symbol">💾</span>
+      <span><h2 data-t>Back-up en cloud</h2><p id="backupSamenvatting"></p></span>
+    </button>
+  </div>
+</section>
+
+<section id="backup" hidden>
+  <button class="back" onclick="show('albums')" data-t>← Terug</button>
+  <h2 data-t>💾 Back-up</h2>
+  <div>
     <p class="muted" data-t>Alles staat alleen op dit toestel. Maak regelmatig een back-up, zodat je niets kwijtraakt als je telefoon stuk of zoek raakt.</p>
     <div id="opslagInfo" class="opslag"></div>
     <button class="knop zacht" onclick="maakBackup()" data-t>📥 Back-up maken</button>
@@ -554,6 +564,7 @@ const VERTALINGEN = {
     "📝 Verhalen bij deze map": "📝 Stories in this folder",
     "+ Verhaal schrijven": "+ Write a story",
     "💾 Back-up": "💾 Backup",
+    "Back-up en cloud": "Backup and cloud",
     "Alles staat alleen op dit toestel. Maak regelmatig een back-up, zodat je niets kwijtraakt als je telefoon stuk of zoek raakt.": "Everything is stored only on this device. Make regular backups so you don’t lose anything if your phone breaks or gets lost.",
     "📥 Back-up maken": "📥 Make a backup",
     "📤 Back-up herstellen": "📤 Restore a backup",
@@ -1191,6 +1202,7 @@ function show(page) {
   if (page === 'notes') renderNotes();
   if (page === 'private') renderPrivate();
   if (page === 'prullenbak') laadPrullenbak();
+  if (page === 'backup') toonOpslag();
   if (page === 'favorieten') laadFavorieten();
   if (page === 'home') { controleerBackupHerinnering(); zoek(); }
   window.scrollTo(0, 0);
@@ -3378,6 +3390,8 @@ async function toonOpslag() {
 
   const laatste = leesGetal(BACKUP_KEY);
   regels.push(t('💾 Laatste back-up: {datum}', { datum: laatste ? formatDatum(new Date(laatste).toISOString()) : t('nog nooit') }));
+  const samenvatting = document.getElementById('backupSamenvatting');
+  if (samenvatting) samenvatting.textContent = regels[regels.length - 1].replace(/^💾\s*/, '');
 
   try {
     if (navigator.storage && navigator.storage.persisted && !isGeinstalleerd() && !(await navigator.storage.persisted())) {
@@ -4279,7 +4293,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "Volgens de privacywet (AVG) mag je je gegevens inzien, laten aanpassen of laten verwijderen. Zonder account regel je dat allemaal zelf in de app, want wij hebben dan geen gegevens van je. Met een account verwijder je je account en cloudback-up zelf via Mijn Memoaris → Back-up → ⚙️ Account. Heb je een vraag of klacht? Mail ons via {email}. Je kunt ook een klacht indienen bij de Autoriteit Persoonsgegevens."
+     "Volgens de privacywet (AVG) mag je je gegevens inzien, laten aanpassen of laten verwijderen. Zonder account regel je dat allemaal zelf in de app, want wij hebben dan geen gegevens van je. Met een account verwijder je je account en cloudback-up zelf via Mijn Memoaris → Back-up en cloud → ⚙️ Account. Heb je een vraag of klacht? Mail ons via {email}. Je kunt ook een klacht indienen bij de Autoriteit Persoonsgegevens."
     ],
     [
      "h3",
@@ -4460,7 +4474,7 @@ const DOCUMENTEN = {
     ],
     [
      "p",
-     "Under the GDPR you have the right to access, correct or delete your data. Without an account you manage all of this yourself in the app, because we then have no data about you. With an account you delete your account and cloud backup yourself via My Memoaris → Backup → ⚙️ Account. Have a question or complaint? Email us at {email}. You can also file a complaint with the Dutch Data Protection Authority (Autoriteit Persoonsgegevens)."
+     "Under the GDPR you have the right to access, correct or delete your data. Without an account you manage all of this yourself in the app, because we then have no data about you. With an account you delete your account and cloud backup yourself via My Memoaris → Backup and cloud → ⚙️ Account. Have a question or complaint? Email us at {email}. You can also file a complaint with the Dutch Data Protection Authority (Autoriteit Persoonsgegevens)."
     ],
     [
      "h3",
