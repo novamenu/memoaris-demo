@@ -541,7 +541,7 @@ function el(tag, props = {}, ...kinderen) {
 // automatisch op de pagina's Over Memoaris, Privacy en Voorwaarden.
 const MAKERS = '';          // bijvoorbeeld 'Azoz en Sam'
 const CONTACT_EMAIL = 'memoaris.support@gmail.com';
-const APP_VERSIE = '1.0';
+const APP_VERSIE = '1.1';
 const DOCUMENTEN_BIJGEWERKT = '2026-10-18';
 
 /* ===================== Talen ===================== */
@@ -934,7 +934,10 @@ const VERTALINGEN = {
     "Je feedback kon niet worden verstuurd. Controleer je internet, of mail ons via {email}.": "Your feedback could not be sent. Check your internet, or email us at {email}.",
     "Versturen…": "Sending…",
     "✨ Er is een nieuwe versie van Memoaris.": "✨ A new version of Memoaris is available.",
-    "Nu bijwerken": "Update now"
+    "Nu bijwerken": "Update now",
+    "✨ Wat is er nieuw": "✨ What’s new",
+    "Wat is er nieuw in versie {versie}": "What’s new in version {versie}",
+    "Top!": "Great!"
   }
 };
 
@@ -4697,6 +4700,7 @@ function toonDocument(soort) {
         el('p', { className: 'muted', textContent: t('Versie {versie}', { versie: APP_VERSIE }) })
       ),
       el('button', { className: 'knop', textContent: t('💬 Feedback geven'), onclick: () => geefFeedback() }),
+      el('button', { className: 'knop zacht', textContent: t('✨ Wat is er nieuw'), onclick: () => toonNieuws() }),
       CONTACT_EMAIL ? el('a', { className: 'knop zacht', href: 'mailto:' + CONTACT_EMAIL, textContent: t('✉️ Mail ons') }) : '',
       el('button', { className: 'card', onclick: () => toonDocument('privacy') },
         el('span', {}, el('h2', { textContent: t('🔒 Privacyverklaring') }))),
@@ -4723,6 +4727,56 @@ function documentTerug() {
     try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
     show('home');
   }
+}
+
+/* ===================== Wat is er nieuw ===================== */
+// Bij elke update: verhoog APP_VERSIE en zet bovenaan een nieuw blok met de belangrijkste punten.
+const NIEUWS = [
+  {
+    versie: '1.1',
+    nl: [
+      '☁️ Cloudback-up: bewaar je back-up versleuteld online en zet hem terug op een nieuwe telefoon. Premium, gratis tijdens de test.',
+      '💾 Back-up en cloud staan nu op een eigen scherm in Mijn Memoaris.',
+      '💬 Feedback geven kan onderaan het beginscherm. We lezen alles zelf.',
+      '🗑️ Tijdens de test kun je verwijderde herinneringen 30 dagen terugzetten.',
+      '⚡ Updates komen voortaan meteen binnen.'
+    ],
+    en: [
+      '☁️ Cloud backup: keep your backup encrypted online and restore it on a new phone. Premium, free during the test.',
+      '💾 Backup and cloud now have their own screen in My Memoaris.',
+      '💬 You can send feedback at the bottom of the home screen. We read everything ourselves.',
+      '🗑️ During the test you can restore deleted memories for 30 days.',
+      '⚡ Updates now arrive straight away.'
+    ]
+  }
+];
+const NIEUWS_KEY = 'memoaris-nieuws-gezien';
+
+function vergelijkVersie(a, b) {
+  const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0);
+  }
+  return 0;
+}
+
+function toonNieuws(vanaf = null) {
+  const blokken = NIEUWS.filter(n => vanaf === null ? n === NIEUWS[0] : vergelijkVersie(n.versie, vanaf) > 0);
+  if (!blokken.length) return;
+  const punten = blokken.flatMap(n => n[taal] || n.en);
+  toonDialoog({
+    titel: t('Wat is er nieuw in versie {versie}', { versie: blokken[0].versie }),
+    tekst: punten.join('\n\n'),
+    knoppen: [{ label: t('Top!'), waarde: true }]
+  });
+}
+
+function controleerNieuws(nieuweGebruiker) {
+  let gezien = null;
+  try { gezien = localStorage.getItem(NIEUWS_KEY); } catch (e) {}
+  try { localStorage.setItem(NIEUWS_KEY, APP_VERSIE); } catch (e) {}
+  if (nieuweGebruiker) return;                     // wie net begint, krijgt het welkomstscherm
+  toonNieuws(gezien || '1.0');                     // oudere versies hielden dit nog niet bij
 }
 
 /* ===================== Opstarten ===================== */
@@ -4792,7 +4846,10 @@ if (['over', 'privacy', 'voorwaarden'].includes(directeLink)) {
   toonDocument(directeLink);
   documentVorige = 'home';
 } else if (!welkomGezien && !data.folders.length && !data.notes.length) {
+  controleerNieuws(true);
   toonWelkom();
+} else {
+  controleerNieuws(false);
 }
 controleerBackupHerinnering();
 </script>
