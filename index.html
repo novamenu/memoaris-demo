@@ -405,7 +405,8 @@ textarea { min-height: 140px; resize: vertical; }
     <button class="taalknop" id="taalKnop" onclick="kiesTaal()" data-t-aria aria-label="Taal wijzigen"></button>
     <button class="link" onclick="toonDocument('over')" data-t>Over Memoaris</button> ·
     <button class="link" onclick="toonDocument('privacy')" data-t>Privacy</button> ·
-    <button class="link" onclick="toonDocument('voorwaarden')" data-t>Voorwaarden</button>
+    <button class="link" onclick="toonDocument('voorwaarden')" data-t>Voorwaarden</button> ·
+    <button class="link" onclick="geefFeedback()" data-t>Feedback</button>
   </div>
   </div>
 </section>
@@ -908,7 +909,23 @@ const VERTALINGEN = {
     "Er ging iets mis met de cloud (code {code}). Probeer het later opnieuw.": "Something went wrong with the cloud (code {code}). Try again later.",
     "Je cloudsleutel kan niet worden geopend met dit wachtwoord.": "Your cloud key cannot be opened with this password.",
     "De cloudback-up kan niet worden geopend. Hij is beschadigd of met een ander wachtwoord gemaakt.": "The cloud backup cannot be opened. It is damaged or was made with a different password.",
-    "Verwijderde herinneringen blijven 30 dagen in de prullenbak en worden daarna automatisch gewist. Tijdens de testperiode kun je ze al die tijd terugzetten. Later kan dat 7 dagen gratis, en 30 dagen met Premium.": "Deleted memories stay in the trash for 30 days and are then erased automatically. During the test period you can restore them the whole time. Later this will be 7 days for free, and 30 days with Premium."
+    "Verwijderde herinneringen blijven 30 dagen in de prullenbak en worden daarna automatisch gewist. Tijdens de testperiode kun je ze al die tijd terugzetten. Later kan dat 7 dagen gratis, en 30 dagen met Premium.": "Deleted memories stay in the trash for 30 days and are then erased automatically. During the test period you can restore them the whole time. Later this will be 7 days for free, and 30 days with Premium.",
+    "Feedback": "Feedback",
+    "💬 Feedback geven": "💬 Send feedback",
+    "Waar gaat het over?": "What is it about?",
+    "💡 Een idee": "💡 An idea",
+    "🐞 Iets werkt niet": "🐞 Something is not working",
+    "💬 Iets anders": "💬 Something else",
+    "Vertel het ons. Alles helpt om Memoaris beter te maken.": "Tell us. Everything helps to make Memoaris better.",
+    "Wat werkt er niet? Vertel wat je deed en wat er gebeurde.": "What is not working? Tell us what you did and what happened.",
+    "Je bericht": "Your message",
+    "Je e-mailadres (optioneel, als je antwoord wilt)": "Your email address (optional, if you want a reply)",
+    "Versturen": "Send",
+    "Schrijf eerst een bericht.": "Write a message first.",
+    "Dat e-mailadres klopt niet. Laat het leeg of vul een geldig adres in.": "That email address is not valid. Leave it empty or enter a valid address.",
+    "Bedankt voor je feedback! We lezen alles zelf.": "Thanks for your feedback! We read everything ourselves.",
+    "Je feedback kon niet worden verstuurd. Controleer je internet, of mail ons via {email}.": "Your feedback could not be sent. Check your internet, or email us at {email}.",
+    "Versturen…": "Sending…"
   }
 };
 
@@ -4143,6 +4160,63 @@ function toonCloud() {
   blok.replaceChildren(...inhoud);
 }
 
+/* ===================== Feedback ===================== */
+// Feedback gaat naar de tabel 'feedback' in Supabase. Iedereen mag erin schrijven,
+// niemand kan het via de app lezen; alleen de makers zien het in het Supabase-dashboard.
+function soortToestel() {
+  const ua = navigator.userAgent || '';
+  const soort = /iPhone|iPad|iPod/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Anders';
+  return soort + (isGeinstalleerd() ? ' · beginscherm' : ' · browser');
+}
+
+async function geefFeedback() {
+  const soort = await kiesUit(t('Waar gaat het over?'), [
+    { label: t('💡 Een idee'), waarde: 'idee' },
+    { label: t('🐞 Iets werkt niet'), waarde: 'fout' },
+    { label: t('💬 Iets anders'), waarde: 'anders' }
+  ]);
+  if (!soort) return;
+
+  let bericht = '';
+  let email = (typeof cloud !== 'undefined' && cloud?.email) || '';
+  while (true) {
+    const antwoord = await toonDialoog({
+      titel: t('💬 Feedback geven'),
+      tekst: soort === 'fout' ? t('Wat werkt er niet? Vertel wat je deed en wat er gebeurde.') : t('Vertel het ons. Alles helpt om Memoaris beter te maken.'),
+      velden: [
+        { meerregelig: true, placeholder: t('Je bericht'), waarde: bericht },
+        { type: 'email', placeholder: t('Je e-mailadres (optioneel, als je antwoord wilt)'), autocomplete: 'email', waarde: email }
+      ],
+      knoppen: [
+        { label: t('Annuleren'), waarde: null, soort: 'zacht' },
+        { label: t('Versturen'), waarde: 'invoer' }
+      ]
+    });
+    if (!Array.isArray(antwoord)) return;
+    bericht = antwoord[0].trim().slice(0, 4000);
+    email = antwoord[1].trim().slice(0, 200);
+    if (!bericht) { await meld(t('Schrijf eerst een bericht.')); continue; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      await meld(t('Dat e-mailadres klopt niet. Laat het leeg of vul een geldig adres in.'));
+      continue;
+    }
+    break;
+  }
+
+  toast(t('Versturen…'));
+  try {
+    await cloudVerzoek('/rest/v1/feedback', {
+      methode: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      json: { soort, bericht, email: email || null, versie: APP_VERSIE, taal, toestel: soortToestel() }
+    });
+    meld(t('Bedankt voor je feedback! We lezen alles zelf.'));
+  } catch (fout) {
+    console.error('Feedback mislukt:', fout);
+    meld(t('Je feedback kon niet worden verstuurd. Controleer je internet, of mail ons via {email}.', { email: CONTACT_EMAIL }));
+  }
+}
+
 /* ===================== Welkomstscherm ===================== */
 function isGeinstalleerd() {
   return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -4273,6 +4347,14 @@ const DOCUMENTEN = {
     [
      "p",
      "Deze gegevens staan bij Supabase, op servers in de Europese Unie (Frankfurt). Supabase verwerkt ze alleen voor ons. Wij gebruiken ze alleen om de cloudback-up te laten werken. Je kunt je cloudback-up en je account op elk moment zelf verwijderen in de app; dan wordt alles wat erbij hoort gewist."
+    ],
+    [
+     "h3",
+     "Feedback"
+    ],
+    [
+     "p",
+     "Stuur je feedback via de app, dan bewaren we je bericht, het soort toestel (bijvoorbeeld iPhone), de versie van de app en, als je dat zelf invult, je e-mailadres. Alleen wij kunnen het lezen. We gebruiken het alleen om Memoaris te verbeteren en om je te antwoorden. Wil je dat we je feedback wissen? Mail ons via {email}."
     ],
     [
      "h3",
@@ -4457,6 +4539,14 @@ const DOCUMENTEN = {
     ],
     [
      "h3",
+     "Feedback"
+    ],
+    [
+     "p",
+     "If you send feedback through the app, we store your message, the type of device (for example iPhone), the app version and, if you fill it in yourself, your email address. Only we can read it. We only use it to improve Memoaris and to reply to you. Want us to erase your feedback? Email us at {email}."
+    ],
+    [
+     "h3",
      "Sharing"
     ],
     [
@@ -4597,7 +4687,8 @@ function toonDocument(soort) {
         el('p', { textContent: t('Gemaakt door {makers}', { makers: MAKERS || t('de makers van Memoaris') }) }),
         el('p', { className: 'muted', textContent: t('Versie {versie}', { versie: APP_VERSIE }) })
       ),
-      CONTACT_EMAIL ? el('a', { className: 'knop', href: 'mailto:' + CONTACT_EMAIL, textContent: t('✉️ Mail ons') }) : '',
+      el('button', { className: 'knop', textContent: t('💬 Feedback geven'), onclick: () => geefFeedback() }),
+      CONTACT_EMAIL ? el('a', { className: 'knop zacht', href: 'mailto:' + CONTACT_EMAIL, textContent: t('✉️ Mail ons') }) : '',
       el('button', { className: 'card', onclick: () => toonDocument('privacy') },
         el('span', {}, el('h2', { textContent: t('🔒 Privacyverklaring') }))),
       el('button', { className: 'card', onclick: () => toonDocument('voorwaarden') },
