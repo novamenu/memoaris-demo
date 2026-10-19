@@ -1,6 +1,6 @@
 // Memoaris service worker: laat de app offline werken.
 // Verhoog het versienummer als je bestanden toevoegt of hernoemt.
-const CACHE = 'memoaris-v2';
+const CACHE = 'memoaris-v3';
 
 const BASIS = [
   './',
@@ -37,7 +37,8 @@ self.addEventListener('fetch', event => {
   // De app zelf: eerst online proberen (zodat updates meteen binnenkomen), anders de opgeslagen versie.
   if (verzoek.mode === 'navigate') {
     event.respondWith(
-      fetch(verzoek)
+      // 'no-cache': altijd even bij de server navragen, zodat een update meteen zichtbaar is.
+      fetch(verzoek, { cache: 'no-cache' })
         .then(antwoord => {
           const kopie = antwoord.clone();
           caches.open(CACHE).then(cache => cache.put('./index.html', kopie));

@@ -345,6 +345,13 @@ textarea { min-height: 140px; resize: vertical; }
 @keyframes vervagen { from { opacity: 0; } }
 @keyframes omhoog { from { transform: translate(var(--tx, 0), 20px); opacity: 0; } }
 .toast { --tx: -50%; }
+.update-balk {
+  position: fixed; left: 12px; right: 12px; top: calc(12px + env(safe-area-inset-top)); z-index: 10500;
+  display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px; border-radius: 16px;
+  background: var(--primair); color: #fff; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); animation: omhoog 0.2s ease-out;
+}
+.update-balk span { flex: 1; font-weight: 600; }
+.update-balk button { border: 0; border-radius: 12px; padding: 10px 14px; background: #fff; color: var(--primair-tekst); font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 /* ===================== Welkomstscherm ===================== */
@@ -925,7 +932,9 @@ const VERTALINGEN = {
     "Dat e-mailadres klopt niet. Laat het leeg of vul een geldig adres in.": "That email address is not valid. Leave it empty or enter a valid address.",
     "Bedankt voor je feedback! We lezen alles zelf.": "Thanks for your feedback! We read everything ourselves.",
     "Je feedback kon niet worden verstuurd. Controleer je internet, of mail ons via {email}.": "Your feedback could not be sent. Check your internet, or email us at {email}.",
-    "Versturen…": "Sending…"
+    "Versturen…": "Sending…",
+    "✨ Er is een nieuwe versie van Memoaris.": "✨ A new version of Memoaris is available.",
+    "Nu bijwerken": "Update now"
   }
 };
 
@@ -4727,7 +4736,46 @@ if (navigator.storage && navigator.storage.persist) {
 
 // Offline werken en installeren als app.
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('sw.js').catch(fout => console.error('Service worker:', fout));
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(fout => console.error('Service worker:', fout));
+}
+
+/* ===================== Nieuwe versie? ===================== */
+// Bij het openen en bij terugkomen in de app kijken we of er een nieuwe index.html online staat.
+// Is dat zo, dan verschijnt bovenaan een balk "Nu bijwerken". Niets gaat verloren: alles staat op het toestel.
+let versieKenmerk = null;
+let laatsteVersieCheck = 0;
+
+async function haalVersieKenmerk() {
+  // HEAD gaat altijd langs de service worker heen, rechtstreeks naar de server.
+  const antwoord = await fetch('./index.html', { method: 'HEAD', cache: 'no-store' });
+  if (!antwoord.ok) return null;
+  return antwoord.headers.get('etag') || antwoord.headers.get('last-modified');
+}
+
+async function controleerNieuweVersie() {
+  if (!navigator.onLine || Date.now() - laatsteVersieCheck < 60000) return;
+  laatsteVersieCheck = Date.now();
+  try {
+    const kenmerk = await haalVersieKenmerk();
+    if (!kenmerk) return;
+    if (versieKenmerk === null) { versieKenmerk = kenmerk; return; }
+    if (kenmerk !== versieKenmerk) toonUpdateBalk();
+  } catch (e) {}
+}
+
+function toonUpdateBalk() {
+  if (document.querySelector('.update-balk')) return;
+  const balk = el('div', { className: 'update-balk' },
+    el('span', { textContent: t('✨ Er is een nieuwe versie van Memoaris.') }),
+    el('button', { textContent: t('Nu bijwerken'), onclick: () => location.reload() })
+  );
+  balk.setAttribute('role', 'status');
+  document.body.append(balk);
+}
+
+if (location.protocol.startsWith('http')) {
+  controleerNieuweVersie();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) controleerNieuweVersie(); });
 }
 
 // Ruim verlopen prullenbak-items op bij het openen van de app.
