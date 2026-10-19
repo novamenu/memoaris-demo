@@ -174,6 +174,7 @@ body.selecteren .toast { bottom: calc(150px + env(safe-area-inset-bottom)); }
 }
 .knoppen-onder { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .knoppen-onder .knop { margin: 0; }
+#privateInhoud .of { text-align: center; margin: 4px 0; }
 
 /* Taalknop onderaan het beginscherm */
 .taalknop {
@@ -541,7 +542,7 @@ function el(tag, props = {}, ...kinderen) {
 // automatisch op de pagina's Over Memoaris, Privacy en Voorwaarden.
 const MAKERS = '';          // bijvoorbeeld 'Azoz en Sam'
 const CONTACT_EMAIL = 'memoaris.support@gmail.com';
-const APP_VERSIE = '1.1';
+const APP_VERSIE = '1.2';
 const DOCUMENTEN_BIJGEWERKT = '2026-10-18';
 
 /* ===================== Talen ===================== */
@@ -937,7 +938,23 @@ const VERTALINGEN = {
     "Nu bijwerken": "Update now",
     "✨ Wat is er nieuw": "✨ What’s new",
     "Wat is er nieuw in versie {versie}": "What’s new in version {versie}",
-    "Top!": "Great!"
+    "Top!": "Great!",
+    "😊 Ontgrendelen met Face ID": "😊 Unlock with Face ID",
+    "😊 Face ID instellen": "😊 Set up Face ID",
+    "😊 Face ID uitzetten": "😊 Turn off Face ID",
+    "Face ID instellen?": "Set up Face ID?",
+    "Daarna open je Private met Face ID (of Touch ID / je vingerafdruk), zonder pincode te typen. Je pincode en herstelcode blijven gewoon werken.": "After this you open Private with Face ID (or Touch ID / your fingerprint), without typing your PIN. Your PIN and recovery code keep working.",
+    "Instellen": "Set up",
+    "Face ID is ingesteld. Vanaf nu kun je Private ermee openen.": "Face ID is set up. From now on you can open Private with it.",
+    "Je toestel ondersteunt dit nog niet. Op een iPhone werkt het vanaf iOS 18. Je kunt Private gewoon met je pincode blijven openen.": "Your device does not support this yet. On an iPhone it works from iOS 18. You can keep opening Private with your PIN.",
+    "Face ID kon niet worden ingesteld. Probeer het opnieuw.": "Face ID could not be set up. Please try again.",
+    "Face ID uitzetten?": "Turn off Face ID?",
+    "Daarna open je Private weer alleen met je pincode.": "After this you open Private with your PIN only.",
+    "Uitzetten": "Turn off",
+    "Face ID staat uit.": "Face ID is off.",
+    "Face ID werkte niet. Gebruik je pincode.": "Face ID did not work. Use your PIN.",
+    "of": "or",
+    "Face ID staat aan voor Private.": "Face ID is on for Private."
   }
 };
 
@@ -2495,7 +2512,9 @@ async function leesKluisNotities(kluis, sleutel) {
 
 function schrijfKluis(kluis) {
   localStorage.setItem(PRIVATE_KEY, JSON.stringify({
-    versie: 2, id: kluis.id, pin: kluis.pin, herstel: kluis.herstel || null, iv: kluis.iv, ct: kluis.ct
+    versie: 2, id: kluis.id, pin: kluis.pin, herstel: kluis.herstel || null,
+    ...(kluis.faceid ? { faceid: kluis.faceid } : {}),
+    iv: kluis.iv, ct: kluis.ct
   }));
 }
 
@@ -2541,6 +2560,135 @@ async function ontgrendel(pin) {
   privateNotities = await leesKluisNotities(kluis, sleutel);
   await gebruikSleutel(ruw);
   return true;
+}
+
+/* ----- Face ID (passkey met PRF) -----
+   Face ID levert via een passkey een geheim van 32 bytes op dat alleen na Face ID beschikbaar is
+   (de PRF-uitbreiding van WebAuthn). Daarmee pakken we de privésleutel een derde keer in, naast
+   pincode en herstelcode. Zonder Face ID van de eigenaar is dat geheim er niet. */
+let faceidMogelijk = null; // null = nog niet gecontroleerd
+
+async function controleerFaceid() {
+  if (faceidMogelijk !== null) return faceidMogelijk;
+  try {
+    faceidMogelijk = !!(window.PublicKeyCredential && window.isSecureContext &&
+      !/^\d+\.\d+\.\d+\.\d+$/.test(location.hostname) &&
+      await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
+  } catch (e) {
+    faceidMogelijk = false;
+  }
+  return faceidMogelijk;
+}
+
+function heeftFaceid() {
+  return !!leesPrivateKluis()?.faceid;
+}
+
+function b64url(bytes) {
+  return naarB64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function vanB64url(tekst) {
+  const b = tekst.replace(/-/g, '+').replace(/_/g, '/');
+  return vanB64(b + '==='.slice((b.length + 3) % 4));
+}
+
+// Vraagt Face ID en geeft het PRF-geheim terug (of null als het toestel geen PRF kent).
+async function faceidGeheim(credId, salt) {
+  const resultaat = await navigator.credentials.get({
+    publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rpId: location.hostname,
+      allowCredentials: [{ type: 'public-key', id: vanB64url(credId) }],
+      userVerification: 'required',
+      timeout: 60000,
+      extensions: { prf: { eval: { first: salt } } }
+    }
+  });
+  const prf = resultaat?.getClientExtensionResults?.().prf?.results?.first;
+  return prf ? new Uint8Array(prf) : null;
+}
+
+async function zetFaceidAan() {
+  if (!privateRuweSleutel) return;
+  const ok = await bevestig(
+    t('Daarna open je Private met Face ID (of Touch ID / je vingerafdruk), zonder pincode te typen. Je pincode en herstelcode blijven gewoon werken.'),
+    { titel: t('Face ID instellen?'), ok: t('Instellen') }
+  );
+  if (!ok) return;
+
+  const ruw = privateRuweSleutel.slice(); // kopie: het Face ID-venster mag Private niet op slot zetten
+  const salt = crypto.getRandomValues(new Uint8Array(32));
+  privateKiestBestand = true;
+  try {
+    const nieuw = await navigator.credentials.create({
+      publicKey: {
+        rp: { name: 'Memoaris', id: location.hostname },
+        user: { id: crypto.getRandomValues(new Uint8Array(16)), name: 'Memoaris Private', displayName: 'Memoaris Private' },
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+        authenticatorSelection: { authenticatorAttachment: 'platform', residentKey: 'preferred', userVerification: 'required' },
+        timeout: 60000,
+        extensions: { prf: { eval: { first: salt } } }
+      }
+    });
+    const credId = b64url(new Uint8Array(nieuw.rawId));
+    const uitkomst = nieuw.getClientExtensionResults?.().prf;
+    let geheim = uitkomst?.results?.first ? new Uint8Array(uitkomst.results.first) : null;
+    if (!geheim && uitkomst?.enabled !== false) geheim = await faceidGeheim(credId, salt); // iPhone geeft het pas bij gebruik
+    if (!geheim) {
+      meld(t('Je toestel ondersteunt dit nog niet. Op een iPhone werkt het vanaf iOS 18. Je kunt Private gewoon met je pincode blijven openen.'));
+      return;
+    }
+    const sleutel = await aesSleutel(geheim);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, sleutel, ruw);
+    schrijfKluis({ ...leesPrivateKluis(), faceid: { credId, salt: naarB64(salt), iv: naarB64(iv), ct: naarB64(ct) } });
+    toast(t('Face ID is ingesteld. Vanaf nu kun je Private ermee openen.'));
+  } catch (fout) {
+    if (fout?.name !== 'NotAllowedError' && fout?.name !== 'AbortError') {
+      console.error('Face ID instellen:', fout);
+      meld(t('Face ID kon niet worden ingesteld. Probeer het opnieuw.'));
+    }
+  } finally {
+    privateKiestBestand = false;
+    if (privateSleutel) { startAutoSlot(); renderPrivate(); }
+  }
+}
+
+async function zetFaceidUit() {
+  const ok = await bevestig(t('Daarna open je Private weer alleen met je pincode.'), {
+    titel: t('Face ID uitzetten?'), ok: t('Uitzetten')
+  });
+  if (!ok) return;
+  const { faceid, ...rest } = leesPrivateKluis();
+  schrijfKluis(rest);
+  renderPrivate();
+  toast(t('Face ID staat uit.'));
+}
+
+// Geeft true als Private met Face ID geopend is.
+async function ontgrendelMetFaceid() {
+  const kluis = leesPrivateKluis();
+  if (!kluis?.faceid) return false;
+  privateKiestBestand = true;
+  try {
+    const geheim = await faceidGeheim(kluis.faceid.credId, vanB64(kluis.faceid.salt));
+    if (!geheim) throw new Error('geen PRF');
+    const ruw = new Uint8Array(await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: vanB64(kluis.faceid.iv) }, await aesSleutel(geheim), vanB64(kluis.faceid.ct)));
+    privateNotities = await leesKluisNotities(kluis, await aesSleutel(ruw));
+    await gebruikSleutel(ruw);
+    return true;
+  } catch (fout) {
+    if (fout?.name !== 'NotAllowedError' && fout?.name !== 'AbortError') {
+      console.error('Face ID:', fout);
+      toast(t('Face ID werkte niet. Gebruik je pincode.'));
+    }
+    return false;
+  } finally {
+    privateKiestBestand = false;
+  }
 }
 
 function normaliseerHerstelcode(code) {
@@ -2963,6 +3111,26 @@ function toonPinInvoer(doos) {
     el('p', { textContent: t('Voer je pincode in om je privéruimte te openen.') }),
     pin, knop, melding, vergeten
   );
+
+  if (heeftFaceid()) {
+    const faceKnop = el('button', { className: 'knop', textContent: t('😊 Ontgrendelen met Face ID') });
+    faceKnop.onclick = async () => {
+      faceKnop.disabled = true;
+      if (await ontgrendelMetFaceid()) {
+        resetPogingen();
+        startAutoSlot();
+        renderPrivate();
+        return;
+      }
+      faceKnop.disabled = false;
+    };
+    controleerFaceid().then(kan => {
+      if (!kan) return;
+      doos.insertBefore(faceKnop, pin);
+      doos.insertBefore(el('p', { className: 'muted of', textContent: t('of') }), pin);
+    });
+    return; // geen toetsenbord openen: Face ID is de snelste weg
+  }
   setTimeout(() => pin.focus(), 50);
 }
 
@@ -2997,6 +3165,14 @@ function toonPrivateMenu(doos) {
     }
   });
 
+  const faceidKnop = el('span');
+  controleerFaceid().then(kan => {
+    if (!kan) return;
+    faceidKnop.replaceWith(heeftFaceid()
+      ? el('button', { className: 'knop zacht', textContent: t('😊 Face ID uitzetten'), onclick: zetFaceidUit })
+      : el('button', { className: 'knop zacht', textContent: t('😊 Face ID instellen'), onclick: zetFaceidAan }));
+  });
+
   doos.append(
     el('p', { className: 'muted', textContent: t('Ontgrendeld. Vergrendelt automatisch na 2 minuten zonder activiteit.') }),
     menuKaart('🖼️', t('Privéfoto’s'), t('Foto’s en video’s, versleuteld bewaard'), () => openPrivateWeergave('fotos')),
@@ -3004,6 +3180,7 @@ function toonPrivateMenu(doos) {
     el('div', { className: 'knoppen-onder' },
       el('button', { className: 'knop zacht', textContent: t('🔢 Pincode wijzigen'), onclick: () => openPrivateWeergave('pinWijzigen') }),
       heeftCode ? nieuweCode : '',
+      faceidKnop,
       vergrendelKnop()
     )
   );
@@ -4732,6 +4909,11 @@ function documentTerug() {
 /* ===================== Wat is er nieuw ===================== */
 // Bij elke update: verhoog APP_VERSIE en zet bovenaan een nieuw blok met de belangrijkste punten.
 const NIEUWS = [
+  {
+    versie: '1.2',
+    nl: ['😊 Open Private met Face ID. Zet het aan in Private met de knop “Face ID instellen”. Werkt op iPhones met iOS 18 of nieuwer.'],
+    en: ['😊 Open Private with Face ID. Turn it on in Private with the “Set up Face ID” button. Works on iPhones with iOS 18 or newer.']
+  },
   {
     versie: '1.1',
     nl: [
